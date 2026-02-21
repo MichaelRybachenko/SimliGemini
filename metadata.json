@@ -1,0 +1,5 @@
+{
+  "name": "Simli AI Avatar",
+  "description": "Interactive AI Avatar powered by Gemini and Simli",
+  "requestFramePermissions": ["microphone", "camera"]
+}
