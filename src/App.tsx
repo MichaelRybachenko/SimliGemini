@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import SimliAvatar from './components/SimliAvatar';
+import SimliLiveGemini from './components/SimliLiveGemini';
 
 export default function App() {
   return (
-    <SimliAvatar />
+    <SimliLiveGemini />
   );
 }
 
