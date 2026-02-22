@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { SimliClient } from 'simli-client';
-import { Send, Loader2, Volume2, VolumeX } from 'lucide-react';
+import { SimliClient, LogLevel } from 'simli-client';
+import { Mic, Send, Loader2, Volume2, VolumeX } from 'lucide-react';
 
 const SimliAvatar: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -9,12 +9,14 @@ const SimliAvatar: React.FC = () => {
   const [isSimliReady, setIsSimliReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
-  const [hasInteracted, setHasInteracted] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const simliClient = useRef<SimliClient | null>(null);
+
   const audioContextRef = useRef<AudioContext | null>(null);
+
+  const [hasInteracted, setHasInteracted] = useState(false);
 
   useEffect(() => {
     let client: SimliClient | null = null;
@@ -28,6 +30,7 @@ const SimliAvatar: React.FC = () => {
 
       try {
         // Fetch token and ICE servers from backend
+        // ... (fetch logic) ...
         const [sessionRes, iceRes] = await Promise.all([
           fetch('/api/simli/session'),
           fetch('/api/simli/ice')
@@ -45,16 +48,7 @@ const SimliAvatar: React.FC = () => {
         const sessionData = await sessionRes.json();
         const iceServersResponse = await iceRes.json();
 
-        console.log('Simli Session Data:', sessionData);
-        console.log('Simli ICE Servers Response:', iceServersResponse);
-
-        if (!sessionData.session_token) {
-          throw new Error('Invalid session data: missing session_token');
-        }
-
-        if (!isMounted) return;
-
-        // Use ICE servers from backend if available, otherwise fallback to Google STUN
+        // ... (rest of init logic) ...
         let effectiveIceServers = iceServersResponse;
         if (!Array.isArray(effectiveIceServers) || effectiveIceServers.length === 0) {
           console.warn('No ICE servers from backend, using fallback STUN');
@@ -62,9 +56,7 @@ const SimliAvatar: React.FC = () => {
         }
 
         console.log('Creating SimliClient with token:', sessionData.session_token);
-        console.log('Using ICE Servers:', effectiveIceServers);
         
-        // Use p2p transport with proper ICE servers
         client = new SimliClient(
           sessionData.session_token,
           videoRef.current,
@@ -111,6 +103,53 @@ const SimliAvatar: React.FC = () => {
       }
     };
   }, [hasInteracted]);
+
+  // ...
+
+  return (
+    <div className="flex flex-col h-screen bg-gray-900 text-white">
+      {/* ... */}
+      <main className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        <div className="flex-1 relative bg-black flex items-center justify-center">
+          <video 
+            ref={videoRef} 
+            autoPlay 
+            playsInline 
+            muted // Important for autoplay
+            className="w-full h-full object-cover"
+          />
+          <audio ref={audioRef} autoPlay />
+          
+          {/* ... */}
+
+          {!hasInteracted && !error && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10">
+              <div className="text-center p-6 max-w-md">
+                <h2 className="text-xl font-bold mb-4">Welcome to Simli AI Avatar</h2>
+                <button 
+                  onClick={() => setHasInteracted(true)}
+                  className="px-6 py-3 bg-blue-600 rounded-lg hover:bg-blue-700 font-semibold transition-colors"
+                >
+                  Start Experience
+                </button>
+              </div>
+            </div>
+          )}
+
+          {hasInteracted && !isSimliReady && !error && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10">
+                {/* Loading state */}
+                <div className="text-center p-6 max-w-md">
+                <h2 className="text-xl font-bold mb-2">Initializing Avatar...</h2>
+                <p className="text-gray-300 mb-4">
+                  Connecting to Simli services. Please wait.
+                </p>
+              </div>
+            </div>
+          )}
+          
+          {/* Error state ... */}
+
 
   const getAudioContext = () => {
     if (!audioContextRef.current) {
@@ -210,7 +249,6 @@ const SimliAvatar: React.FC = () => {
             ref={videoRef} 
             autoPlay 
             playsInline 
-            muted // Important for autoplay
             className="w-full h-full object-cover"
           />
           <audio ref={audioRef} autoPlay />
@@ -225,24 +263,9 @@ const SimliAvatar: React.FC = () => {
             </button>
           </div>
 
-          {!hasInteracted && !error && (
+          {!isSimliReady && !error && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10">
               <div className="text-center p-6 max-w-md">
-                <h2 className="text-xl font-bold mb-4">Welcome to Simli AI Avatar</h2>
-                <button 
-                  onClick={() => setHasInteracted(true)}
-                  className="px-6 py-3 bg-blue-600 rounded-lg hover:bg-blue-700 font-semibold transition-colors"
-                >
-                  Start Experience
-                </button>
-              </div>
-            </div>
-          )}
-
-          {hasInteracted && !isSimliReady && !error && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10">
-                {/* Loading state */}
-                <div className="text-center p-6 max-w-md">
                 <h2 className="text-xl font-bold mb-2">Initializing Avatar...</h2>
                 <p className="text-gray-300 mb-4">
                   Connecting to Simli services. Please wait.
