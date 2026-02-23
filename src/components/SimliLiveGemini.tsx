@@ -1,3 +1,4 @@
+import { tr } from "motion/react-client";
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { SimliClient } from "simli-client";
 
@@ -172,12 +173,20 @@ const SimliLiveGemini: React.FC = () => {
           system_instruction: {
             parts: [
               {
-                text:
-                  "You are the Lead Creative Producer for 'Radio AI'. " +
-                  "Your goal is to brainstorm innovative, high-concept musical album ideas. " +
-                  "Think about album titles, tracklist themes, cover art descriptions, and specific genre-fusion (e.g., Cyber-Folk, Ambient-Industrial). " +
-                  "Always use your voice to respond. If the user asks for what's trending, use Google Search to find current music market news." +
-                  "Whenever you suggest an album, provide a detailed 'Visual Art Prompt' that I can use to generate the cover art.",
+                text: `
+You are the Lead Creative Producer for 'Radio AI'. 
+Your goal is to brainstorm innovative, high-concept musical album ideas.
+Think about album titles, tracklist themes, cover art descriptions, and specific genre-fusion (e.g., Cyber-Folk, Ambient-Industrial).
+Always use your voice to respond. If the user asks for what's trending, use Google Search to find current music market news.
+A good concept helps the Suno AI create a cohesive story through music.
+A concept is more than just a genre; it is the "soul" of the album. It is a central theme, story, or mood that ties all the songs together.
+
+The Narrative: Is it a story about a lost traveler? A 1980s retro-ski race?
+The Atmosphere: Is it "misty and ethereal" or "high-octane and neon"?
+Lyrical Themes: What should the songs talk about?
+Musical Style: Mention specific instruments like "Lutes and harps" or "Analog drum machines".
+The albun art: Detailed 'Visual Art Prompt' that I can use to generate the cover art.
+`,
               },
             ],
           },
@@ -185,10 +194,16 @@ const SimliLiveGemini: React.FC = () => {
             response_modalities: ["AUDIO"],
             speech_config: {
               voice_config: {
-                prebuilt_voice_config: { voice_name: "Aoede" },
+                prebuilt_voice_config: { voice_name: "Laomedeia" },
               },
             },
+            thinking_config: {
+              // Use thinking_budget=0 to disable reasoning verbalization for 2.5 models
+              thinking_budget: 0,
+            },
           },
+          input_audio_transcription: {},
+          output_audio_transcription: {},
           tools: [{ google_search: {} }],
         },
       };
@@ -200,7 +215,11 @@ const SimliLiveGemini: React.FC = () => {
           turns: [
             {
               role: "user",
-              parts: [{ text: "Hello! Check the news for me." }],
+              parts: [
+                {
+                  text: "Hello, Lead Producer! Welcome to the session. Tell me you're ready to start brainstorming albums. Use Google Search if you need to know what's trending in music right now. Give me one brilliant idea for an album concept to start with.",
+                },
+              ],
             },
           ],
           turn_complete: true,
@@ -209,7 +228,6 @@ const SimliLiveGemini: React.FC = () => {
 
       ws.send(JSON.stringify(welcome));
 
-      console.log("Sent setup message");
       startAudioRecording(); // Start recording immediately
     };
 
@@ -234,10 +252,26 @@ const SimliLiveGemini: React.FC = () => {
           return;
         }
 
+        const transcript = response.serverContent?.output_transcription?.text;
+
+        if (transcript) {
+          setChatHistory((prev) => {
+            const lastMsg = prev[prev.length - 1];
+            // If the last message is from the assistant, append the new transcript chunk
+            if (lastMsg && lastMsg.role === "assistant") {
+              return [
+                ...prev.slice(0, -1),
+                { ...lastMsg, content: lastMsg.content + transcript },
+              ];
+            }
+            // Otherwise, create a new assistant entry
+            return [...prev, { role: "assistant", content: transcript }];
+          });
+        }
+
         if (response.serverContent?.modelTurn?.parts) {
           for (const part of response.serverContent.modelTurn.parts) {
             if (part.text) {
-              // Text Response
               const newText = part.text;
               setChatHistory((prev) => {
                 const lastMsg = prev[prev.length - 1];
@@ -250,6 +284,7 @@ const SimliLiveGemini: React.FC = () => {
                 return [...prev, { role: "assistant", content: newText }];
               });
             }
+
             if (
               part.inlineData &&
               part.inlineData.mimeType.startsWith("audio/pcm")
@@ -395,10 +430,10 @@ const SimliLiveGemini: React.FC = () => {
   }, [isMicMuted]);
 
   return (
-    <div className="flex bg-black items-center justify-center p-4 min-h-screen text-white font-sans">
-      <div className="flex flex-col gap-6 max-w-2xl w-full items-center justify-center">
+    <div className="flex bg-black items-center justify-center min-h-screen h-screen overflow-hidden text-white font-sans">
+      <div className="flex flex-col gap-6 max-w-2xl w-full h-full p-4 items-center justify-center min-h-0">
         {/* Avatar Container - Flexible width between 180px and 512px, square aspect ratio */}
-        <div className="relative w-full aspect-square min-w-[180px] max-w-[512px] bg-black overflow-hidden flex items-center justify-center border border-gray-800 rounded-lg shadow-xl group">
+        <div className="relative w-full aspect-square min-w-[180px] max-w-[512px] min-h-[180px] shrink bg-black overflow-hidden flex items-center justify-center border border-gray-800 rounded-lg shadow-xl group">
           {/* Helper message if not started */}
           {!hasInteracted ? (
             <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20 text-white flex-col gap-4">
@@ -437,52 +472,80 @@ const SimliLiveGemini: React.FC = () => {
           {/* Bottom Controls Overlay */}
           <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center z-40 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
             {/* Left: Mic Toggle */}
-            <button
-              onClick={() => setIsMicMuted(!isMicMuted)}
-              className={`p-3 rounded-full transition-all shadow-lg ${
-                isMicMuted
-                  ? "bg-red-600 hover:bg-red-700 text-white"
-                  : "bg-gray-800/80 hover:bg-gray-700 text-white backdrop-blur-sm"
-              }`}
-              title={isMicMuted ? "Unmute Microphone" : "Mute Microphone"}
-            >
-              {isMicMuted ? (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setIsMicMuted(!isMicMuted)}
+                className={`p-3 rounded-full transition-all shadow-lg ${
+                  isMicMuted
+                    ? "bg-red-600 hover:bg-red-700 text-white"
+                    : "bg-gray-800/80 hover:bg-gray-700 text-white backdrop-blur-sm"
+                }`}
+                title={isMicMuted ? "Unmute Microphone" : "Mute Microphone"}
+              >
+                {isMicMuted ? (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                    <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path>
+                    <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path>
+                    <line x1="12" y1="19" x2="12" y2="23"></line>
+                    <line x1="8" y1="23" x2="16" y2="23"></line>
+                  </svg>
+                ) : (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                    <line x1="12" y1="19" x2="12" y2="23"></line>
+                    <line x1="8" y1="23" x2="16" y2="23"></line>
+                  </svg>
+                )}
+              </button>
+              {/* End Conversation Button */}
+              {hasInteracted && (
+                <button
+                  onClick={() => {
+                    setHasInteracted(false);
+                    setIsSimliReady(false);
+                  }}
+                  className="p-3 rounded-full bg-red-600 hover:bg-red-700 text-white transition-all shadow-lg"
+                  title="End Conversation"
                 >
-                  <line x1="1" y1="1" x2="23" y2="23"></line>
-                  <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path>
-                  <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path>
-                  <line x1="12" y1="19" x2="12" y2="23"></line>
-                  <line x1="8" y1="23" x2="16" y2="23"></line>
-                </svg>
-              ) : (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                  <line x1="12" y1="19" x2="12" y2="23"></line>
-                  <line x1="8" y1="23" x2="16" y2="23"></line>
-                </svg>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                    <line x1="12" y1="2" x2="12" y2="12"></line>
+                  </svg>
+                </button>
               )}
-            </button>
+            </div>
 
             {/* Middle: Transcript Toggle */}
             <button
@@ -571,10 +634,10 @@ const SimliLiveGemini: React.FC = () => {
 
         {/* Transcript Section (Bottom) */}
         {showTranscript && (
-          <div className="flex flex-col gap-2 w-full max-w-[512px] animate-in fade-in slide-in-from-top-4 duration-300">
-            <div className="flex-1 bg-gray-900 rounded-lg p-4 h-64 overflow-y-auto text-sm text-gray-300 border border-gray-800 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent flex flex-col gap-3 shadow-inner">
+          <div className="flex flex-col gap-2 w-full max-w-[512px] flex-1 min-h-0 animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="flex-1 bg-gray-900 rounded-lg p-4 overflow-y-auto text-sm text-gray-300 border border-gray-800 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent flex flex-col gap-3 shadow-inner min-h-0">
               {chatHistory.length === 0 && (
-                <p className="text-gray-500 italic text-center text-xs mt-24">
+                <p className="text-gray-500 italic text-center text-xs my-auto">
                   Conversation will appear here...
                 </p>
               )}
