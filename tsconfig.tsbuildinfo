@@ -1,1 +1,1 @@
-{"root":["./vite.config.ts","./dist/assets/index-c6heyefi.js","./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/components/simlilivegemini.tsx"],"version":"5.8.3"}
+{"root":["./vite.config.ts","./dist/pcm-processor.js","./dist/assets/index-octnl3nv.js","./public/pcm-processor.js","./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/components/simlilivegemini.tsx"],"version":"5.8.3"}
