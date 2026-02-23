@@ -173,9 +173,11 @@ const SimliLiveGemini: React.FC = () => {
             parts: [
               {
                 text:
-                  "You are a helpful AI assistant for a project called Radio AI. " +
-                  "Always use your voice to respond. If you need current facts, " +
-                  "use the Google Search tool before answering.",
+                  "You are the Lead Creative Producer for 'Radio AI'. " +
+                  "Your goal is to brainstorm innovative, high-concept musical album ideas. " +
+                  "Think about album titles, tracklist themes, cover art descriptions, and specific genre-fusion (e.g., Cyber-Folk, Ambient-Industrial). " +
+                  "Always use your voice to respond. If the user asks for what's trending, use Google Search to find current music market news." +
+                  "Whenever you suggest an album, provide a detailed 'Visual Art Prompt' that I can use to generate the cover art.",
               },
             ],
           },
@@ -395,7 +397,6 @@ const SimliLiveGemini: React.FC = () => {
   return (
     <div className="flex bg-black items-center justify-center p-4 min-h-screen text-white font-sans">
       <div className="flex flex-col gap-6 max-w-2xl w-full items-center justify-center">
-        
         {/* Avatar Container - Flexible width between 180px and 512px, square aspect ratio */}
         <div className="relative w-full aspect-square min-w-[180px] max-w-[512px] bg-black overflow-hidden flex items-center justify-center border border-gray-800 rounded-lg shadow-xl group">
           {/* Helper message if not started */}
@@ -435,117 +436,189 @@ const SimliLiveGemini: React.FC = () => {
 
           {/* Bottom Controls Overlay */}
           <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center z-40 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-             
-             {/* Left: Mic Toggle */}
-             <button
-                onClick={() => setIsMicMuted(!isMicMuted)}
-                className={`p-3 rounded-full transition-all shadow-lg ${
-                  isMicMuted
-                    ? "bg-red-600 hover:bg-red-700 text-white"
-                    : "bg-gray-800/80 hover:bg-gray-700 text-white backdrop-blur-sm"
-                }`}
-                title={isMicMuted ? "Unmute Microphone" : "Mute Microphone"}
+            {/* Left: Mic Toggle */}
+            <button
+              onClick={() => setIsMicMuted(!isMicMuted)}
+              className={`p-3 rounded-full transition-all shadow-lg ${
+                isMicMuted
+                  ? "bg-red-600 hover:bg-red-700 text-white"
+                  : "bg-gray-800/80 hover:bg-gray-700 text-white backdrop-blur-sm"
+              }`}
+              title={isMicMuted ? "Unmute Microphone" : "Mute Microphone"}
             >
-                {isMicMuted ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
-                ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
-                )}
+              {isMicMuted ? (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                  <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path>
+                  <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path>
+                  <line x1="12" y1="19" x2="12" y2="23"></line>
+                  <line x1="8" y1="23" x2="16" y2="23"></line>
+                </svg>
+              ) : (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                  <line x1="12" y1="19" x2="12" y2="23"></line>
+                  <line x1="8" y1="23" x2="16" y2="23"></line>
+                </svg>
+              )}
             </button>
 
-             {/* Middle: Transcript Toggle */}
-             <button
-                onClick={() => setShowTranscript(!showTranscript)}
-                className={`p-3 rounded-full transition-all shadow-lg ${
-                   showTranscript
-                    ? "bg-blue-600 hover:bg-blue-700 text-white"
-                    : "bg-gray-800/80 hover:bg-gray-700 text-white backdrop-blur-sm"
-                }`}
-                title="Toggle Transcript"
+            {/* Middle: Transcript Toggle */}
+            <button
+              onClick={() => setShowTranscript(!showTranscript)}
+              className={`p-3 rounded-full transition-all shadow-lg ${
+                showTranscript
+                  ? "bg-blue-600 hover:bg-blue-700 text-white"
+                  : "bg-gray-800/80 hover:bg-gray-700 text-white backdrop-blur-sm"
+              }`}
+              title="Toggle Transcript"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+              </svg>
             </button>
 
             {/* Right: Volume Control */}
             <div className="flex items-center gap-2 bg-gray-800/80 backdrop-blur-sm rounded-full p-2 pr-4 shadow-lg group/vol">
-                 <button
-                    onClick={() => setIsAudioMuted(!isAudioMuted)}
-                    className="p-1 hover:text-blue-400 transition-colors"
-                    title={isAudioMuted ? "Unmute Audio" : "Mute Audio"}
-                >
-                    {isAudioMuted ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
-                    ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
-                    )}
-                </button>
-                <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.05"
-                    value={volume}
-                    onChange={(e) => {
-                    setVolume(parseFloat(e.target.value));
-                    setIsAudioMuted(false); 
-                    }}
-                    className="w-20 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer hover:bg-blue-500 accent-blue-500"
-                />
+              <button
+                onClick={() => setIsAudioMuted(!isAudioMuted)}
+                className="p-1 hover:text-blue-400 transition-colors"
+                title={isAudioMuted ? "Unmute Audio" : "Mute Audio"}
+              >
+                {isAudioMuted ? (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                    <line x1="23" y1="9" x2="17" y2="15"></line>
+                    <line x1="17" y1="9" x2="23" y2="15"></line>
+                  </svg>
+                ) : (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                  </svg>
+                )}
+              </button>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={volume}
+                onChange={(e) => {
+                  setVolume(parseFloat(e.target.value));
+                  setIsAudioMuted(false);
+                }}
+                className="w-20 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer hover:bg-blue-500 accent-blue-500"
+              />
             </div>
-
           </div>
         </div>
 
         {/* Transcript Section (Bottom) */}
         {showTranscript && (
-            <div className="flex flex-col gap-2 w-full max-w-[512px] animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="flex flex-col gap-2 w-full max-w-[512px] animate-in fade-in slide-in-from-top-4 duration-300">
             <div className="flex-1 bg-gray-900 rounded-lg p-4 h-64 overflow-y-auto text-sm text-gray-300 border border-gray-800 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent flex flex-col gap-3 shadow-inner">
-                {chatHistory.length === 0 && (
+              {chatHistory.length === 0 && (
                 <p className="text-gray-500 italic text-center text-xs mt-24">
-                    Conversation will appear here...
+                  Conversation will appear here...
                 </p>
-                )}
-                {chatHistory.map((msg, idx) => (
+              )}
+              {chatHistory.map((msg, idx) => (
                 <div
-                    key={idx}
-                    className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}
+                  key={idx}
+                  className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}
                 >
-                    <div
+                  <div
                     className={`px-4 py-3 rounded-2xl max-w-[90%] text-sm ${
-                        msg.role === "user"
+                      msg.role === "user"
                         ? "bg-blue-600 text-white rounded-br-none"
                         : "bg-gray-700 text-gray-100 rounded-bl-none"
                     }`}
-                    >
+                  >
                     {msg.content}
-                    </div>
+                  </div>
                 </div>
-                ))}
+              ))}
             </div>
             {/* Text Input Area */}
             <div className="flex gap-2">
-                <input
+              <input
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyDown={(e) => {
-                    if (e.key === "Enter") {
+                  if (e.key === "Enter") {
                     handleSendText();
-                    }
+                  }
                 }}
                 placeholder="Type a message..."
                 className="flex-1 bg-gray-800 text-white rounded p-2 text-sm border border-gray-700 outline-none focus:border-blue-500 transition-colors"
-                />
-                <button
+              />
+              <button
                 onClick={handleSendText}
                 type="button"
                 disabled={!inputText.trim()}
                 className={`px-4 py-2 bg-blue-600 rounded text-sm font-bold hover:bg-blue-700 transition-colors ${!inputText.trim() ? "opacity-50 cursor-not-allowed" : ""}`}
-                >
+              >
                 Send
-                </button>
+              </button>
             </div>
-            </div>
+          </div>
         )}
       </div>
     </div>
