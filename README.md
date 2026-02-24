@@ -1,20 +1,91 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# SimliGemini - Interactive AI Simli Avatar with Gemini Live
 
-# Run and deploy your AI Studio app
+SimliGemini is a React application that integrates [Simli's](https://www.simli.com/) real-time AI avatar video generation with Google's [Gemini Live API](https://ai.google.dev/) to create an interactive, conversational AI experience.
 
-This contains everything you need to run your app locally.
+The application features a persona named **Scarlet**, a creative producer for "Radio AI," who helps users brainstorm innovative musical album concepts.
 
-View your app in AI Studio: https://ai.studio/apps/71bb4cb2-e27a-4f94-a67a-66d4ae6cb6d1
+## Features
 
-## Run Locally
+-   **Real-time AI Avatar**: Uses Simli to render a lip-synced, expressive avatar in real-time.
+-   **gemini-2.0-flash-exp Integration**: Connects to Google's Gemini Live API via WebSocket for low-latency, multimodal (audio/text) conversations.
+-   **Voice Interaction**: Speak directly to the avatar using your microphone.
+-   **Text Chat Fallback**: Type messages if you prefer not to speak.
+-   **Visual Feedback**: Real-time audio visualizers for both user input and AI output.
+-   **Chat History**: View the conversation transcript.
+-   **Controls**:
+    -   Microphone Mute/Unmute
+    -   Audio Output Mute/Unmute
+    -   Volume Control
+    -   Download Chat History
 
-**Prerequisites:**  Node.js
+## Prerequisites
 
+-   **Node.js**: Ensure you have Node.js installed (v18+ recommended).
+-   **Simli Account**: You need a Simli API Key and a Face ID.
+-   **Google AI Studio Account**: You need a Gemini API Key.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Setup
+
+1.  **Clone the repository:**
+    ```bash
+    git clone <repository-url>
+    cd SimliGemini
+    ```
+
+2.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
+
+3.  **Configure Environment Variables:**
+    Create a `.env` file in the root directory (you can copy `.env.example`):
+    ```bash
+    cp .env.example .env
+    ```
+    
+    Fill in your API keys in the `.env` file:
+    ```env
+    # Google Gemini API Key
+    VITE_GEMINI_API_KEY="your_gemini_api_key_here"
+
+    # Simli API Key
+    VITE_SIMLI_API_KEY="your_simli_api_key_here"
+
+    # Simli Face ID (The ID of the avatar face you want to use)
+    VITE_SIMLI_FACE_ID="your_simli_face_id_here"
+    ```
+
+## Running the Application
+
+1.  **Start the development server:**
+    ```bash
+    npm run dev
+    ```
+
+2.  **Open in Browser:**
+    Navigate to `http://localhost:5173` (or the port shown in your terminal).
+
+3.  **Start the Interaction:**
+    Click the "Click to Start" overlay to initialize the Simli client and audio context.
+
+## Usage & Controls
+
+-   **Start/Stop**: The application requires a user interaction (click) to start audio/video.
+-   **Microphone**: Click the microphone icon 🎤 to mute/unmute your input.
+-   **Speaker**: Click the speaker icon 🔊 to mute/unmute the avatar's audio.
+-   **Volume**: Use the slider next to the speaker icon to adjust volume.
+-   **Text Input**: Type in the box at the bottom and press Enter to send a text message instead of speaking.
+-   **Transcript**: The chat history is displayed on the right side (on larger screens) or can be toggled.
+
+## Project Structure
+
+-   `src/App.tsx`: Main entry point.
+-   `src/components/SimliLiveGemini.tsx`: Core component handling Simli client initialization, Gemini WebSocket connection, and audio processing.
+-   `public/pcm-processor.js`: AudioWorklet processor for handling raw PCM audio data.
+-   `vite.config.ts`: Vite configuration.
+
+## Troubleshooting
+
+-   **Audio Issues**: Ensure your browser has permission to access the microphone.
+-   **Connection Errors**: Check your API keys in the `.env` file and ensure they are valid.
+-   **Simli/Gemini Errors**: Open the browser's developer console (F12) to see detailed error messages from the WebSocket or API calls.
