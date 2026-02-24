@@ -364,7 +364,12 @@ Function 'print_album_concept' takes the following parameters:
 
     ws.onclose = (event) => {
       console.log("Gemini WebSocket Closed", event.code, event.reason);
-      setError(`Gemini Connection Closed: ${event.code} ${event.reason}`);
+      // setError(`Gemini Connection Closed: ${event.code} ${event.reason}`);
+      setIsSimliReady(false); // Update UI state
+      if (simliClientRef.current) {
+        simliClientRef.current.stop();
+        simliClientRef.current = null;
+      }
     };
   };
 
@@ -442,12 +447,24 @@ Function 'print_album_concept' takes the following parameters:
       initialize();
     }
     return () => {
-      if (wsRef.current) wsRef.current.close();
-      if (simliClientRef.current) simliClientRef.current.stop();
-      if (streamRef.current)
+      console.log("Cleaning up Simli & Gemini...");
+      isInitializing.current = false; // Allow re-initialization
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      if (simliClientRef.current) {
+        simliClientRef.current.stop();
+        simliClientRef.current = null;
+      }
+      if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
-      if (audioContextRef.current && audioContextRef.current.state !== "closed")
+        streamRef.current = null;
+      }
+      if (audioContextRef.current) {
         audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
     };
   }, [hasInteracted]);
 

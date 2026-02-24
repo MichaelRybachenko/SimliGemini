@@ -1,4 +1,5 @@
 # SimliGemini - Interactive AI Simli Avatar with Gemini Live
+# Lead Creative Producer of Radio AI
 
 SimliGemini is a React application that integrates [Simli's](https://www.simli.com/) real-time AI avatar video generation with Google's [Gemini Live API](https://ai.google.dev/) to create an interactive, conversational AI experience.
 
@@ -7,7 +8,7 @@ The application features a persona named **Scarlet**, a creative producer for "R
 ## Features
 
 -   **Real-time AI Avatar**: Uses Simli to render a lip-synced, expressive avatar in real-time.
--   **gemini-2.0-flash-exp Integration**: Connects to Google's Gemini Live API via WebSocket for low-latency, multimodal (audio/text) conversations.
+-   **models/gemini-2.5-flash-native-audio-latest Integration**: Connects to Google's Gemini Live API via WebSocket for low-latency, multimodal (audio/text) conversations.
 -   **Voice Interaction**: Speak directly to the avatar using your microphone.
 -   **Text Chat Fallback**: Type messages if you prefer not to speak.
 -   **Visual Feedback**: Real-time audio visualizers for both user input and AI output.
