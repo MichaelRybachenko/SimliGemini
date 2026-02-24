@@ -34,6 +34,7 @@ const SimliLiveGemini: React.FC = () => {
   const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
   const SIMLI_API_KEY = import.meta.env.VITE_SIMLI_API_KEY;
   const SIMLI_FACE_ID = import.meta.env.VITE_SIMLI_FACE_ID;
+  const DUAL_PIPELINE = true; // Set to true for Gemini audio, false for Simli audio
 
   // --- Helpers ---
   const handleDownload = (content: string, index: number) => {
@@ -401,7 +402,9 @@ Function 'print_album_concept' takes the following parameters:
           simliClientRef.current.sendAudioData(audioBuffer);
         }
 
-        play24kAudio(int16_24k);
+        if (DUAL_PIPELINE) {
+          play24kAudio(int16_24k);
+        }
       }
     };
 
@@ -522,14 +525,14 @@ Function 'print_album_concept' takes the following parameters:
 
   // Handle Output Volume
   useEffect(() => {
-    // Audio volume is now controlled via the playbackContextRef if possible,
-    // but since we are scheduling buffers directly, we need a GainNode.
-    // However, for simplicity and since the user asked for 24kHz playback logic as provided,
-    // we should note that HTMLAudioElement (audioRef) is now muted.
-    // To control volume of the 24kHz stream, we would ideally insert a GainNode.
-    // For now, let's keep the audioRef muted as requested.
     if (audioRef.current) {
-      audioRef.current.volume = 0; // Always mute the Simli audio
+      if (DUAL_PIPELINE) {
+        audioRef.current.muted = true;
+        audioRef.current.volume = 0;
+      } else {
+        audioRef.current.muted = isAudioMuted;
+        audioRef.current.volume = volume;
+      }
     }
   }, [volume, isAudioMuted]);
 
@@ -551,7 +554,7 @@ Function 'print_album_concept' takes the following parameters:
           {!hasInteracted ? (
             <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20 text-white flex-col gap-4">
               <h2 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                Simli + Gemini Live
+                Creative Producer is waiting!
               </h2>
               <button
                 onClick={() => setHasInteracted(true)}
