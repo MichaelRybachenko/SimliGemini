@@ -4,8 +4,16 @@ class PCMProcessor extends AudioWorkletProcessor {
     if (input.length > 0) {
       const float32Data = input[0];
       const int16Data = new Int16Array(float32Data.length);
+      
       for (let i = 0; i < float32Data.length; i++) {
-        const s = Math.max(-1, Math.min(1, float32Data[i]));
+        // High-fidelity clipping and conversion
+        let s = float32Data[i];
+        s = Math.max(-1, Math.min(1, s));
+        
+        // Add a tiny bit of noise (dither) to smooth out the conversion
+        const dither = (Math.random() * 2 - 1) / 32768;
+        s += dither;
+        
         int16Data[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
       }
       this.port.postMessage(int16Data.buffer);
