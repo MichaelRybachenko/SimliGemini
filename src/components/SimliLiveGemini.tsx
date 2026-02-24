@@ -68,10 +68,14 @@ const SimliLiveGemini: React.FC = () => {
     return window.btoa(binary);
   };
 
+  // Adjust this value based on your testing (usually 150ms - 300ms)
+  const LATENCY_COMPENSATION = 0.22; // 215ms delay
+
   const play24kAudio = (int16Data: Int16Array) => {
     if (!playbackContextRef.current) {
       playbackContextRef.current = new AudioContext({ sampleRate: 24000 });
-      nextStartTimeRef.current = playbackContextRef.current.currentTime;
+      // Initialize nextStartTime with a small buffer for the network
+      nextStartTimeRef.current = playbackContextRef.current.currentTime + LATENCY_COMPENSATION;
     }
 
     const ctx = playbackContextRef.current;
@@ -87,8 +91,8 @@ const SimliLiveGemini: React.FC = () => {
     source.buffer = buffer;
     source.connect(ctx.destination);
 
-    // Schedule playback to ensure a gapless stream
-    const startTime = Math.max(ctx.currentTime, nextStartTimeRef.current);
+    // Schedule playback with the offset
+    const startTime = Math.max(ctx.currentTime + LATENCY_COMPENSATION, nextStartTimeRef.current);
     source.start(startTime);
     nextStartTimeRef.current = startTime + buffer.duration;
   };
@@ -295,30 +299,45 @@ Function 'print_album_concept' takes the following parameters:
 
       ws.send(JSON.stringify(setupMsg));
 
-      const welcome = {
-        client_content: {
-          turns: [
-            {
-              role: "user",
-              parts: [
-                {
-                  text: "Hello, Creative Producer! Welcome to the meeting! Give me a casual greeting and tell me you're ready to start brainstorming albums. Use Google Search if you need to know what's trending in music right now. Give me one brilliant idea for an album concept to start with.",
-                },
-              ],
-            },
-          ],
-          turn_complete: true,
-        },
-      };
-
-      ws.send(JSON.stringify(welcome));
-
-      startAudioRecording(); // Start recording immediately
+      // Sending the welcome message with a slight delay allows the server to process the setup message first.
+      // This prevents race conditions where 'client_content' and 'realtime_input' (audio) arrive before the session is ready.
+      setTimeout(() => {
+        const welcome = {
+          client_content: {
+            turns: [
+              {
+                role: "user",
+                parts: [
+                  {
+                    text: "Hello, Creative Producer! Welcome to the meeting! Give me a casual greeting and tell me you're ready to start brainstorming albums. Use Google Search if you need to know what's trending in music right now. Give me one brilliant idea for an album concept to start with.",
+                  },
+                ],
+              },
+            ],
+            turn_complete: true,
+          },
+        };
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(welcome));
+            console.log("Sent Welcome Message");
+        }
+        
+        // Start recording after sending the welcome message
+        startAudioRecording(); 
+      }, 500);
     };
 
     ws.onmessage = async (event: MessageEvent) => {
       const rawData = await event.data.text();
       const response = JSON.parse(rawData);
+
+      // Handle Setup Completion (if applicable) or Initial triggering
+      // Note: Gemini API doesn't always send a specific "setup complete" message, 
+      // but waiting for the first message or just delaying can help.
+      // However, to be robust, we'll just check if this is the first interaction.
+     
+      // ... existing message handling ... 
+
 
       if (response.toolCall) {
         console.log("Producer is printing a concept...");
