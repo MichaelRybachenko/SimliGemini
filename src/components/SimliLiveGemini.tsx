@@ -1,6 +1,6 @@
-import { tr } from "motion/react-client";
+import { col, tr } from "motion/react-client";
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { SimliClient } from "simli-client";
+import { LogLevel, SimliClient } from "simli-client";
 
 const SimliLiveGemini: React.FC = () => {
   // --- Refs ---
@@ -34,6 +34,18 @@ const SimliLiveGemini: React.FC = () => {
   const SIMLI_FACE_ID = import.meta.env.VITE_SIMLI_FACE_ID;
 
   // --- Helpers ---
+  const handleDownload = (content: string, index: number) => {
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `chat-history-${index}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const base64ToUint8Array = (base64: string) => {
     const binaryString = window.atob(base64);
     const len = binaryString.length;
@@ -54,34 +66,22 @@ const SimliLiveGemini: React.FC = () => {
     return window.btoa(binary);
   };
 
-  // Convert Float32 (web audio) to Int16 (PCM)
-  const float32ToInt16 = (float32: Float32Array) => {
-    const int16 = new Int16Array(float32.length);
-    for (let i = 0; i < float32.length; i++) {
-      const s = Math.max(-1, Math.min(1, float32[i]));
-      int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-    }
-    return int16;
-  };
-
   // Downsample form 24000 (Gemini) to 16000 (Simli)
   const downsampleTo16k = (audioData: Int16Array) => {
-    // Simple decimation or linear interpolation. 24k -> 16k is 3:2 ratio.
-    // For every 3 input samples, need 2 output samples.
-    const ratio = 24000 / 16000;
+    const ratio = 1.5;
     const newLength = Math.round(audioData.length / ratio);
     const result = new Int16Array(newLength);
 
     for (let i = 0; i < newLength; i++) {
-      const index = i * ratio;
-      const low = Math.floor(index);
-      const high = Math.ceil(index);
-      const weight = index - low;
-
-      if (high < audioData.length) {
-        result[i] = audioData[low] * (1 - weight) + audioData[high] * weight;
+      const center = Math.floor(i * ratio);
+      // Weighted anti-aliasing filter
+      if (center > 0 && center < audioData.length - 1) {
+        result[i] =
+          audioData[center - 1] * 0.25 +
+          audioData[center] * 0.5 +
+          audioData[center + 1] * 0.25;
       } else {
-        result[i] = audioData[low];
+        result[i] = audioData[center];
       }
     }
     return result;
@@ -133,7 +133,7 @@ const SimliLiveGemini: React.FC = () => {
         videoRef.current,
         audioRef.current,
         iceServers,
-        0, // Debug
+        LogLevel.ERROR, // Debug
         "p2p",
         "websockets",
         "wss://api.simli.ai",
@@ -174,7 +174,7 @@ const SimliLiveGemini: React.FC = () => {
             parts: [
               {
                 text: `
-You are the Lead Creative Producer for 'Radio AI'. 
+You are the Lead Creative Producer for 'Radio AI'. Your name is Scarlet, and you are a world-renowned expert in crafting innovative musical album concepts.
 Your goal is to brainstorm innovative, high-concept musical album ideas.
 Think about album titles, tracklist themes, cover art descriptions, and specific genre-fusion (e.g., Cyber-Folk, Ambient-Industrial).
 Always use your voice to respond. If the user asks for what's trending, use Google Search to find current music market news.
@@ -185,7 +185,22 @@ The Narrative: Is it a story about a lost traveler? A 1980s retro-ski race?
 The Atmosphere: Is it "misty and ethereal" or "high-octane and neon"?
 Lyrical Themes: What should the songs talk about?
 Musical Style: Mention specific instruments like "Lutes and harps" or "Analog drum machines".
-The albun art: Detailed 'Visual Art Prompt' that I can use to generate the cover art.
+Vocal Style: Should the vocals be "whispered and haunting" or "powerful and operatic"? Or is it an instrumental album with no vocals at all?
+The album art: Detailed 'Visual Art Prompt' that I can use to generate the cover art.
+
+When generating an album, you must create a cohesive from 5 to 20-track list that follows the narrative arc. 
+For each song, provide a creative title, a description of its place in the story, and specific Suno-style style tags (Genre/Mood/Instrumentation/Vocal Style).
+Include a track list into the description of the album concept, making sure it fits the overall narrative and atmosphere.
+Please, each track with a new line and a dash, like this:
+- Track 1: "Title" - Description of the song's role in the album and style tags.
+
+Whenever you finalize a musical album concept, you MUST call the 'print_album_concept' function.
+Function 'print_album_concept' takes the following parameters:
+- title: The album title
+- genre: The specific genre fusion (e.g., "Cyber-Folk")
+- description: A detailed summary of the album concept, including narrative, atmosphere, lyrical themes, and musical style.
+- instrumental: A boolean indicating whether the album is instrumental or has vocals, and if so, what vocal style.
+- art_prompt: A detailed visual art prompt for the album cover that captures the essence of the concept.
 `,
               },
             ],
@@ -204,7 +219,45 @@ The albun art: Detailed 'Visual Art Prompt' that I can use to generate the cover
           },
           input_audio_transcription: {},
           output_audio_transcription: {},
-          tools: [{ google_search: {} }],
+          tools: [
+            { google_search: {} },
+            {
+              functionDeclarations: [
+                {
+                  name: "print_album_concept",
+                  description:
+                    "Saves a finalized musical album concept to the database.",
+                  parameters: {
+                    type: "OBJECT",
+                    properties: {
+                      title: {
+                        type: "STRING",
+                        description: "The title of the album",
+                      },
+                      genre: {
+                        type: "STRING",
+                        description: "The genre fusion",
+                      },
+                      description: {
+                        type: "STRING",
+                        description: "Detailed concept summary",
+                      },
+                      instrumental: {
+                        type: "BOOLEAN",
+                        description:
+                          "Whether the album is instrumental or has vocals",
+                      },
+                      art_prompt: {
+                        type: "STRING",
+                        description: "Visual prompt for cover art",
+                      },
+                    },
+                    required: ["title", "genre", "description", "art_prompt"],
+                  },
+                },
+              ],
+            },
+          ],
         },
       };
 
@@ -217,7 +270,7 @@ The albun art: Detailed 'Visual Art Prompt' that I can use to generate the cover
               role: "user",
               parts: [
                 {
-                  text: "Hello, Lead Producer! Welcome to the session. Tell me you're ready to start brainstorming albums. Use Google Search if you need to know what's trending in music right now. Give me one brilliant idea for an album concept to start with.",
+                  text: "Hello, Creative Producer! Welcome to the meeting! Give me a casual greeting and tell me you're ready to start brainstorming albums. Use Google Search if you need to know what's trending in music right now. Give me one brilliant idea for an album concept to start with.",
                 },
               ],
             },
@@ -232,90 +285,75 @@ The albun art: Detailed 'Visual Art Prompt' that I can use to generate the cover
     };
 
     ws.onmessage = async (event: MessageEvent) => {
-      let rawData = "";
+      const rawData = await event.data.text();
+      const response = JSON.parse(rawData);
 
-      // 1. Convert Blob or ArrayBuffer to string
-      if (event.data instanceof Blob) {
-        rawData = await event.data.text();
-      } else if (event.data instanceof ArrayBuffer) {
-        rawData = new TextDecoder().decode(event.data);
-      } else {
-        rawData = event.data;
-      }
+      if (response.toolCall) {
+        console.log("Producer is printing a concept...");
+        const functionResponses: any[] = [];
 
-      try {
-        const response = JSON.parse(rawData);
+        for (const fc of response.toolCall.functionCalls) {
+          if (fc.name === "print_album_concept") {
+            // 1. Capture the concept for your UI
+            const concept = fc.args;
+            console.log(
+              `📀 NEW CONCEPT: ${concept.title} (${concept.genre})\nDescription:\n${concept.description}\nAlbum art prompt:\n${concept.art_prompt}`,
+            );
+            setChatHistory((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                content: `📀 NEW CONCEPT: ${concept.title} (${concept.genre})\nDescription:\n${concept.description}\nAlbum art prompt:\n${concept.art_prompt}`,
+              },
+            ]);
 
-        if (response.error) {
-          console.error("Gemini Error:", response.error);
-          setError("Gemini Error: " + response.error.message);
-          return;
-        }
-
-        const transcript = response.serverContent?.output_transcription?.text;
-
-        if (transcript) {
-          setChatHistory((prev) => {
-            const lastMsg = prev[prev.length - 1];
-            // If the last message is from the assistant, append the new transcript chunk
-            if (lastMsg && lastMsg.role === "assistant") {
-              return [
-                ...prev.slice(0, -1),
-                { ...lastMsg, content: lastMsg.content + transcript },
-              ];
-            }
-            // Otherwise, create a new assistant entry
-            return [...prev, { role: "assistant", content: transcript }];
-          });
-        }
-
-        if (response.serverContent?.modelTurn?.parts) {
-          for (const part of response.serverContent.modelTurn.parts) {
-            if (part.text) {
-              const newText = part.text;
-              setChatHistory((prev) => {
-                const lastMsg = prev[prev.length - 1];
-                if (lastMsg && lastMsg.role === "assistant") {
-                  return [
-                    ...prev.slice(0, -1),
-                    { ...lastMsg, content: lastMsg.content + newText },
-                  ];
-                }
-                return [...prev, { role: "assistant", content: newText }];
-              });
-            }
-
-            if (
-              part.inlineData &&
-              part.inlineData.mimeType.startsWith("audio/pcm")
-            ) {
-              // Audio Response
-              const pcm24k = base64ToUint8Array(part.inlineData.data);
-
-              // Gemini sends 24kHz, Simli needs 16kHz
-              const int16Path_24k = new Int16Array(
-                pcm24k.buffer,
-                pcm24k.byteOffset,
-                pcm24k.byteLength / 2,
-              );
-
-              // Downsample to 16k for Simli
-              const int16Path_16k = downsampleTo16k(int16Path_24k);
-
-              // Convert back to Uint8Array for the Simli Client
-              if (simliClientRef.current) {
-                const audioBuffer = new Uint8Array(
-                  int16Path_16k.buffer,
-                  int16Path_16k.byteOffset,
-                  int16Path_16k.byteLength,
-                );
-                simliClientRef.current.sendAudioData(audioBuffer);
-              }
-            }
+            // 2. Prepare the success response for Gemini
+            functionResponses.push({
+              id: fc.id,
+              name: fc.name,
+              response: {
+                result: concept,
+              },
+            });
           }
         }
-      } catch (e) {
-        console.error("Error parsing Gemini message", e);
+
+        // 3. Send ACK back to Gemini to keep the conversation flowing
+        wsRef.current?.send(
+          JSON.stringify({
+            tool_response: { function_responses: functionResponses },
+          }),
+        );
+      }
+
+      // 1. Check for incoming audio chunks
+      const audioPart = response.serverContent?.modelTurn?.parts?.find((p) =>
+        p.inlineData?.mimeType.startsWith("audio/pcm"),
+      );
+
+      if (audioPart) {
+        const pcm24kRaw = base64ToUint8Array(audioPart.inlineData.data);
+        const int16_24k = new Int16Array(
+          pcm24kRaw.buffer,
+          pcm24kRaw.byteOffset,
+          pcm24kRaw.byteLength / 2,
+        );
+        const int16_16k = downsampleTo16k(int16_24k);
+
+        if (simliClientRef.current) {
+          const audioBuffer = new Uint8Array(
+            int16_16k.buffer,
+            int16_16k.byteOffset,
+            int16_16k.byteLength,
+          );
+          simliClientRef.current.sendAudioData(audioBuffer);
+        }
+      }
+
+      // 2. Map the text ONLY when the turn is active
+      const transcript = response.serverContent?.output_transcription?.text;
+      if (transcript) {
+        console.log("Concept Store Updated:", transcript); // Collapse after 1s of inactivity
       }
     };
 
@@ -644,16 +682,39 @@ The albun art: Detailed 'Visual Art Prompt' that I can use to generate the cover
               {chatHistory.map((msg, idx) => (
                 <div
                   key={idx}
-                  className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}
+                  className={`flex flex-col gap-1 ${msg.role === "user" ? "items-end" : "items-start"}`}
                 >
                   <div
-                    className={`px-4 py-3 rounded-2xl max-w-[90%] text-sm ${
+                    className={`px-4 py-3 rounded-2xl max-w-[90%] text-sm whitespace-pre-wrap relative group/msg ${
                       msg.role === "user"
                         ? "bg-blue-600 text-white rounded-br-none"
-                        : "bg-gray-700 text-gray-100 rounded-bl-none"
+                        : "bg-gray-700 text-gray-100 rounded-bl-none pr-10"
                     }`}
                   >
                     {msg.content}
+                    {msg.role === "assistant" && (
+                      <button
+                        onClick={() => handleDownload(msg.content, idx)}
+                        className="absolute top-2 right-2 text-gray-400 hover:text-white opacity-0 group-hover/msg:opacity-100 transition-opacity p-1 bg-gray-700/50 rounded-full backdrop-blur-sm"
+                        title="Download this message"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                          <polyline points="7 10 12 15 17 10"></polyline>
+                          <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
