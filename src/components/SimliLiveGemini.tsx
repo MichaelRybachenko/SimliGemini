@@ -329,13 +329,13 @@ Function 'print_album_concept' takes the following parameters:
             // 1. Capture the concept for your UI
             const concept = fc.args;
             console.log(
-              `📀 NEW CONCEPT: ${concept.title} (${concept.genre})\nDescription:\n${concept.description}\nAlbum art prompt:\n${concept.art_prompt}`,
+              `📀 NEW CONCEPT:\n${concept.title} (${concept.genre})\nDescription:\n${concept.description}\nAlbum art prompt:\n${concept.art_prompt}`,
             );
             setChatHistory((prev) => [
               ...prev,
               {
                 role: "assistant",
-                content: `📀 NEW CONCEPT: ${concept.title} (${concept.genre})\nDescription:\n${concept.description}\nAlbum art prompt:\n${concept.art_prompt}`,
+                content: `📀 NEW CONCEPT:\n${concept.title} (${concept.genre})\nDescription:\n${concept.description}\nAlbum art prompt:\n${concept.art_prompt}`,
               },
             ]);
 
@@ -371,10 +371,6 @@ Function 'print_album_concept' takes the following parameters:
           pcm24kRaw.byteLength / 2,
         );
 
-        // PATH 1: Direct 24kHz Playback to Speakers (Studio Quality)
-        play24kAudio(int16_24k);
-
-        // PATH 2: 16kHz Downsample for Simli (Lip-Sync Only)
         const int16_16k = downsampleTo16k(int16_24k);
 
         if (simliClientRef.current) {
@@ -385,12 +381,8 @@ Function 'print_album_concept' takes the following parameters:
           );
           simliClientRef.current.sendAudioData(audioBuffer);
         }
-      }
 
-      // 2. Map the text ONLY when the turn is active
-      const transcript = response.serverContent?.output_transcription?.text;
-      if (transcript) {
-        console.log("Concept Store Updated:", transcript); // Collapse after 1s of inactivity
+        play24kAudio(int16_24k);
       }
     };
 
