@@ -1,18 +1,18 @@
 # Lead Creative Producer for Radio AI
 SimliGemini - Interactive AI Simli Avatar with Gemini Live
 
+Use cases:
 ![Radio AI Architecture Diagram](./assets/use-cases.png)
-Use cases
 
+Architecture diagram:
 ![Radio AI Architecture Diagram](./assets/creative-producer.png)
-Architecture diagram
 
+Similarity check, gap analysis:
 ![Radio AI Architecture Diagram](./assets/similarity-check.png)
-Similarity check, gap analysis
 
 SimliGemini is a React application that integrates [Simli's](https://www.simli.com/) real-time AI avatar video generation with Google's [Gemini Live API](https://ai.google.dev/) to create an interactive, conversational AI experience. It part of larger project (Radio AI).
 
-The application features a persona named **Scarlet**, a creative producer for "Radio AI," who helps users brainstorm innovative musical album concepts.
+The application features a persona named **Alisa**, a creative producer for "Radio AI," who helps users brainstorm innovative musical album concepts.
 
 ## Features
 
