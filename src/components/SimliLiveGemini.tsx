@@ -76,7 +76,8 @@ const SimliLiveGemini: React.FC = () => {
     if (!playbackContextRef.current) {
       playbackContextRef.current = new AudioContext({ sampleRate: 24000 });
       // Initialize nextStartTime with a small buffer for the network
-      nextStartTimeRef.current = playbackContextRef.current.currentTime + LATENCY_COMPENSATION;
+      nextStartTimeRef.current =
+        playbackContextRef.current.currentTime + LATENCY_COMPENSATION;
     }
 
     const ctx = playbackContextRef.current;
@@ -93,7 +94,10 @@ const SimliLiveGemini: React.FC = () => {
     source.connect(ctx.destination);
 
     // Schedule playback with the offset
-    const startTime = Math.max(ctx.currentTime + LATENCY_COMPENSATION, nextStartTimeRef.current);
+    const startTime = Math.max(
+      ctx.currentTime + LATENCY_COMPENSATION,
+      nextStartTimeRef.current,
+    );
     source.start(startTime);
     nextStartTimeRef.current = startTime + buffer.duration;
   };
@@ -206,9 +210,9 @@ const SimliLiveGemini: React.FC = () => {
             parts: [
               {
                 text: `
-You are the Lead Creative Producer for 'Radio AI'. Your name is Scarlet, and you are a world-renowned expert in crafting innovative musical album concepts.
+You are the Lead Creative Producer for 'Radio AI'. Your name is Alisa, and you are a world-renowned expert in crafting innovative musical album concepts.
 Your goal is to brainstorm innovative, high-concept musical album ideas.
-Think about album titles, tracklist themes, cover art descriptions, and specific genre-fusion (e.g., Cyber-Folk, Ambient-Industrial).
+Think about album titles, tracklist themes, cover art descriptions, and specific genre or genre-fusion (e.g., Cyber-Folk, Ambient-Industrial).
 Always use your voice to respond. If the user asks for what's trending, use Google Search to find current music market news.
 A good concept helps the Suno AI create a cohesive story through music.
 A concept is more than just a genre; it is the "soul" of the album. It is a central theme, story, or mood that ties all the songs together.
@@ -220,8 +224,11 @@ Musical Style: Mention specific instruments like "Lutes and harps" or "Analog dr
 Vocal Style: Should the vocals be "whispered and haunting" or "powerful and operatic"? Or is it an instrumental album with no vocals at all?
 The album art: Detailed 'Visual Art Prompt' that I can use to generate the cover art.
 
-Neon should be last thing on your mind when creating concepts. Be bold, original, and unexpected! Surprise me with your creativity.
-Search for inspiration if you need to, but always put your unique Scarlet spin on it. I want concepts that feel fresh and exciting, not rehashes of old ideas.
+Before proposing any new album concept, check recent context: call get_recent_concepts to review the recent projects. 
+If your new idea is too similar to these recent titles or genres, pivot to a different creative direction to maintain variety.
+
+Be bold, original, and unexpected! Surprise me with your creativity.
+Search for inspiration if you need to, but always put your unique Alisa spin on it. I want concepts that feel fresh and exciting, not rehashes of old ideas.
 
 Use search to find what shows are trending in the music industry and incorporate those insights into your concepts.
 
@@ -234,7 +241,7 @@ Please, each track with a new line and a dash, like this:
 Whenever you finalize a musical album concept, you MUST call the 'print_album_concept' function.
 Function 'print_album_concept' takes the following parameters:
 - title: The album title
-- genre: The specific genre fusion (e.g., "Cyber-Folk")
+- genre: The specific genre
 - description: A detailed summary of the album concept, including narrative, atmosphere, lyrical themes, and musical style.
 - instrumental: A boolean indicating whether the album is instrumental or has vocals, and if so, what vocal style.
 - art_prompt: A detailed visual art prompt for the album cover that captures the essence of the concept.
@@ -292,6 +299,12 @@ Function 'print_album_concept' takes the following parameters:
                     required: ["title", "genre", "description", "art_prompt"],
                   },
                 },
+                {
+                  name: "get_recent_concepts",
+                  description:
+                    "Retrieves the recent album concepts (Title, Genre, Description) from the local database.",
+                  parameters: { type: "object", properties: {} },
+                },
               ],
             },
           ],
@@ -319,12 +332,12 @@ Function 'print_album_concept' takes the following parameters:
           },
         };
         if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify(welcome));
-            console.log("Sent Welcome Message");
+          ws.send(JSON.stringify(welcome));
+          console.log("Sent Welcome Message");
         }
-        
+
         // Start recording after sending the welcome message
-        startAudioRecording(); 
+        startAudioRecording();
       }, 500);
     };
 
@@ -333,12 +346,11 @@ Function 'print_album_concept' takes the following parameters:
       const response = JSON.parse(rawData);
 
       // Handle Setup Completion (if applicable) or Initial triggering
-      // Note: Gemini API doesn't always send a specific "setup complete" message, 
+      // Note: Gemini API doesn't always send a specific "setup complete" message,
       // but waiting for the first message or just delaying can help.
       // However, to be robust, we'll just check if this is the first interaction.
-     
-      // ... existing message handling ... 
 
+      // ... existing message handling ...
 
       if (response.toolCall) {
         console.log("Producer is printing a concept...");
@@ -367,6 +379,39 @@ Function 'print_album_concept' takes the following parameters:
                 result: concept,
               },
             });
+          } else if (fc.name === "get_recent_concepts") {
+            console.log("Producer is requesting recent concepts...");
+
+            // Mocking a database call to fetch recent concepts created by the Producer
+            const simplifiedConcepts = [
+              {
+                title: "Neon Wilderness",
+                description:
+                  "An album that blends the nostalgic sounds of 80s synthwave with the raw, earthy tones of folk music. The narrative follows a lone wanderer navigating a post-apocalyptic world illuminated by neon lights and haunted by memories of the past.",
+              },
+              {
+                title: "Cosmic Latte",
+                description:
+                  "A dreamy, instrumental album that takes listeners on a journey through the universe. Each track represents a different celestial body or cosmic phenomenon, using a mix of ambient synths, ethereal vocals, and spacey sound effects to create an immersive experience.",
+              },
+              {
+                title: "Industrial Eden",
+                description:
+                  "A high-energy album that fuses the aggressive beats of industrial music with the lush, organic sounds of a hidden paradise. The concept explores the tension between nature and technology, with tracks that range from harsh and mechanical to soft and serene.",
+              },
+            ];
+
+            functionResponses.push({
+              id: fc.id,
+              name: fc.name,
+              response: {
+                result: simplifiedConcepts,
+              },
+            });
+
+            console.log(
+              `Sent ${simplifiedConcepts.length} recent concepts to Producer.`,
+            );
           }
         }
 
