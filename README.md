@@ -11,7 +11,7 @@ Similarity check, gap analysis:
 ![Radio AI Architecture Diagram](./assets/similarity-check.png)
 
 ```mermaid
-[graph TD
+graph TD
     subgraph "Frontend: Radio AI Studio"
         A[Creator UI / Studio View] --> B[Lead Creative Producer - Gemini Live]
         C[Listener UI / Radio View] --> B
@@ -32,7 +32,7 @@ Similarity check, gap analysis:
     subgraph "Multimodal Output"
         B -->|24kHz Native| J[High-Fidelity Audio]
         B -->|16kHz Sync| K[Simli Avatar: Lip-Sync]
-    end]
+    end
 
 SimliGemini is a React application that integrates [Simli's](https://www.simli.com/) real-time AI avatar video generation with Google's [Gemini Live API](https://ai.google.dev/) to create an interactive, conversational AI experience. It part of larger project (Radio AI).
 
