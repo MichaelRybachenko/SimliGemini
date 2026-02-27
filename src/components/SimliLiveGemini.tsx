@@ -34,7 +34,7 @@ const SimliLiveGemini: React.FC = () => {
   const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
   const SIMLI_API_KEY = import.meta.env.VITE_SIMLI_API_KEY;
   const SIMLI_FACE_ID = import.meta.env.VITE_SIMLI_FACE_ID;
-  const DUAL_PIPELINE = true; // Set to true for Gemini audio, false for Simli audio
+  const DUAL_PIPELINE = false; // Set to true for Gemini audio, false for Simli audio
 
   // --- Helpers ---
   const handleDownload = (content: string, index: number) => {
