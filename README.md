@@ -10,30 +10,6 @@ Architecture diagram:
 Similarity check, gap analysis:
 ![Radio AI Architecture Diagram](./assets/similarity-check.png)
 
-```mermaid
-graph TD
-    subgraph "Frontend: Radio AI Studio"
-        A[Creator UI / Studio View] --> B[Lead Creative Producer - Gemini Live]
-        C[Listener UI / Radio View] --> B
-    end
-
-    subgraph "Memory & Intelligence Engine"
-        B <-->|get_recent_concepts| D[(Local SQL: Recent History)]
-        B <-->|search_repertoire| E[Vertex AI Vector Search Endpoint]
-        E --- F[gs://radio-ai/album-similarities]
-        B <-->|Google Search Tool| G[Real-time Market Trends]
-    end
-
-    subgraph "Production Last Mile"
-        B -->|JSON Package| H[Suno API: Audio Gen]
-        B -->|Puppeteer Session| I[DistroKid: Global Release]
-    end
-
-    subgraph "Multimodal Output"
-        B -->|24kHz Native| J[High-Fidelity Audio]
-        B -->|16kHz Sync| K[Simli Avatar: Lip-Sync]
-    end
-
 SimliGemini is a React application that integrates [Simli's](https://www.simli.com/) real-time AI avatar video generation with Google's [Gemini Live API](https://ai.google.dev/) to create an interactive, conversational AI experience. It part of larger project (Radio AI).
 
 The application features a persona named **Alisa**, a creative producer for "Radio AI," who helps users brainstorm innovative musical album concepts.
