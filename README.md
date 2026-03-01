@@ -1,6 +1,30 @@
 # Lead Creative Producer for Radio AI
 SimliGemini - Interactive AI Simli Avatar with Gemini Live
 
+Creative Producer is a multimodal AI agent designed to solve the "blank page" problem in music production. Moving beyond simple track generation, the agent acts as a strategic studio partner that identifies market gaps and builds deep, cohesive narratives.
+
+## Core Agent Architecture
+The system balances a high-fidelity frontend with a stateful, vector-backed "brain":
+
+Real-time Multimodal Interaction: Powered by the Gemini Multimodal Live API and Simli, providing bidirectional voice dialogue with near-zero latency.
+
+Stateful Creative Memory: Every concept is cross-referenced against a 768-dimensional streaming index in Vertex AI.
+
+Precision Gap Analysis: The agent ensures new proposals are mathematically unique compared to the existing concepts in her repertoire.
+
+## Automated Cloud Deployment
+To demonstrate production readiness, the Vertex AI infrastructure is provisioned via automated scripts.
+
+Deployment Script: scripts/deploy-vertex-index.sh
+
+This script automates the full lifecycle of the agent's memory:
+
+Index Creation: Provisions a 768-dim index with STREAM_UPDATE for real-time learning.
+
+Endpoint Provisioning: Automatically stands up the public Index Endpoint (API Gateway).
+
+Data Plane Binding: Deploys the index to the endpoint for immediate use by the MatchServiceClient.
+
 Use cases:
 ![Radio AI Architecture Diagram](./assets/use-cases.png)
 
@@ -63,6 +87,18 @@ The application features a persona named **Alisa**, a creative producer for "Rad
 
     # Simli Face ID (The ID of the avatar face you want to use)
     VITE_SIMLI_FACE_ID="your_simli_face_id_here"
+
+    # The resource name of the index (optional)
+    INDEX_RESOURCE_NAME="projects/my-project-id/locations/us-central1/indexes/my-index-id"
+
+    # The API endpoint for the Match Service (usually us-central1-aiplatform.googleapis.com)
+    API_ENDPOINT="us-central1-aiplatform.googleapis.com"
+
+    # The specific endpoint where your index is deployed 
+    INDEX_ENDPOINT="projects/my-project-id/locations/us-central1/indexEndpoints/my-index-endpoint-id"
+
+    # The ID of the deployed index within the endpoint
+    DEPLOYED_INDEX_ID="my_deployed_index_id"
     ```
 
 ## Running the Application
