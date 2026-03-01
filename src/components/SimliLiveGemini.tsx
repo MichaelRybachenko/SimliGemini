@@ -60,7 +60,7 @@ const SimliLiveGemini: React.FC = () => {
         console.log(`Checking similarities for concept: ${title}`);
 
         // Call backend API
-        const response = await fetch("/api/similarities", {
+        const response = await fetch("https://radio69.ai/api/albums/similarities-check", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
