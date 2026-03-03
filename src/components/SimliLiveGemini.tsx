@@ -49,6 +49,8 @@ const SimliLiveGemini: React.FC = () => {
   const SIMLI_FACE_ID = import.meta.env.VITE_SIMLI_FACE_ID;
   const DUAL_PIPELINE = false; // Set to true for Gemini audio, false for Simli audio
 
+  let sessionId: string | null = null;
+
   /**
    * Calls the backend to generate an embedding for the potential new album
    * and checks for similarities against existing albums.
@@ -60,13 +62,16 @@ const SimliLiveGemini: React.FC = () => {
         console.log(`Checking similarities for concept: ${title}`);
 
         // Call backend API
-        const response = await fetch("https://radio69.ai/api/albums/similarities-check", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
+        const response = await fetch(
+          "https://radio69.ai/api/albums/similarities-check",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ title, genre, description }),
           },
-          body: JSON.stringify({ title, genre, description }),
-        });
+        );
 
         if (!response.ok) {
           throw new Error(`API error: ${response.statusText}`);
@@ -266,20 +271,25 @@ const SimliLiveGemini: React.FC = () => {
         : [{ urls: ["stun:stun.l.google.com:19302"] }];
 
       // 3. Initialize Simli Client
-      const client = new SimliClient(
+      simliClientRef.current = new SimliClient(
         tokenData.session_token,
         videoRef.current,
         audioRef.current,
         iceServers,
-        LogLevel.ERROR, // Debug
+        LogLevel.ERROR,
         "p2p",
         "websockets",
         "wss://api.simli.ai",
         3000,
       );
 
-      simliClientRef.current = client;
-      await client.start();
+      simliClientRef.current.on("speaking", () => console.log("SPEAKING..."));
+      simliClientRef.current.on("silent", () => console.log("SILENT..."));
+      simliClientRef.current.on("stop", () =>
+        console.log("SimliClient disconnected"),
+      );
+
+      await simliClientRef.current.start();
       console.log("Simli Client Started");
       setIsSimliReady(true);
 
@@ -293,7 +303,6 @@ const SimliLiveGemini: React.FC = () => {
 
   const connectToGemini = () => {
     const encodedKey = GEMINI_API_KEY; // Should be valid
-    //const url = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${encodedKey}`;
     const url = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${encodedKey}`;
 
     // Create WebSocket with correct protocol version if needed, or just default
@@ -301,13 +310,27 @@ const SimliLiveGemini: React.FC = () => {
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log("Gemini WebSocket Connected");
+      sessionId = localStorage.getItem("gemini_session_id");
+      
+      console.log(`Gemini WebSocket Connected, sending setup message with session ID: ${sessionId ? sessionId : "None"}`);
 
       // Initial Setup Message
       // Note: Gemini Live API often requires a specific 'setup' payload as the VERY FIRST message.
       const setupMsg = {
         setup: {
           model: "models/gemini-2.5-flash-native-audio-latest",
+          sessionResumption: { handle: sessionId },
+          //proactivity: { proactiveAudio: true },
+          generation_config: {
+            response_modalities: ["AUDIO"],
+            speech_config: {
+              voice_config: {
+                prebuilt_voice_config: { voice_name: "Laomedeia" },
+              },
+            },
+          },
+          input_audio_transcription: {},
+          output_audio_transcription: {},
           system_instruction: {
             parts: [
               {
@@ -339,10 +362,14 @@ Please, each track with a new line and a dash, like this:
 
 It's not necessary to read tracklist as long as you print the album concept details. Only highlight the one or two 'signature' tracks.
 
-Once you have a unique candidate idea with a tracklist, call similarities_check. This function analyzes the 'distance' between your new concept and existing concepts.
+Once you have a candidate idea with a tracklist, call similarities_check. This function analyzes the 'distance' between your new concept and existing concepts.
 The function similarities_check returns: { status: "ACCEPT"|"REJECT"|"ERROR", reason, score }
 If the new concept has high similarity, identify this as a 'Crowded Space' and adjust the concept.
 If the new concept has low similarity, announce to the user that you have identified a 'Repertoire Gap' and explain why this new concept fills it.
+Each candidate idea must have a similarity check performed before being finalized (print_album_concept). 
+If the similarity check returns "REJECT", you must pivot and create a new, more unique concept. 
+If it returns "ACCEPT", you can proceed to finalize this concept.
+You are allowed to proceed with the idea if similarity_check returns "ERROR" or if similarity_check returns "REJECT" five times in a row.
 
 Be bold, original, and unexpected! Surprise me with your creativity.
 Search for inspiration if you need to, but always put your unique Alisa spin on it. I want concepts that feel fresh and exciting, not rehashes of old ideas.
@@ -358,20 +385,6 @@ Function 'print_album_concept' takes the following parameters:
               },
             ],
           },
-          generation_config: {
-            response_modalities: ["AUDIO"],
-            speech_config: {
-              voice_config: {
-                prebuilt_voice_config: { voice_name: "Laomedeia" },
-              },
-            },
-            thinking_config: {
-              // Use thinking_budget=0 to disable reasoning verbalization for 2.5 models
-              thinking_budget: 0,
-            },
-          },
-          input_audio_transcription: {},
-          output_audio_transcription: {},
           tools: [
             { google_search: {} },
             {
@@ -553,7 +566,9 @@ Function 'print_album_concept' takes the following parameters:
           } else if (fc.name === "get_recent_concepts") {
             console.log("Producer is requesting recent concepts...");
 
-            // Mocking a database call to fetch recent concepts created by the Producer
+            // Real data https://radio69.ai/
+            // | GET | `/api/user-concepts/recent` | Get Recent Concepts | Public | Query: `username`, `limit` |
+            // update mock response with real API call
             const simplifiedConcepts = [
               {
                 title: "Aetherium: Fragments of Utopia",
@@ -666,12 +681,12 @@ Instrumental: undefined`,
               );
 
               setChatHistory((prev) => [
-              ...prev,
-              {
-                role: "assistant",
-                content: `Similarity Result: [${similaritiesResult?.status}]: ${similaritiesResult?.reason}, Score: ${similaritiesResult?.score}`,
-              },
-            ]);
+                ...prev,
+                {
+                  role: "assistant",
+                  content: `Similarity Result: [${similaritiesResult?.status}]: ${similaritiesResult?.reason}, Score: ${similaritiesResult?.score}`,
+                },
+              ]);
 
               functionResponses.push({
                 id: fc.id,
@@ -712,35 +727,54 @@ Instrumental: undefined`,
             tool_response: { function_responses: functionResponses },
           }),
         );
-      }
-
-      // 1. Check for incoming audio chunks
-      const audioPart = response.serverContent?.modelTurn?.parts?.find((p) =>
-        p.inlineData?.mimeType.startsWith("audio/pcm"),
-      );
-
-      if (audioPart) {
-        const pcm24kRaw = base64ToUint8Array(audioPart.inlineData.data);
-        const int16_24k = new Int16Array(
-          pcm24kRaw.buffer,
-          pcm24kRaw.byteOffset,
-          pcm24kRaw.byteLength / 2,
+      } else if (response.goAway) {
+        console.log("Received goAway from Gemini:", response.goAway);
+      } else if (response.sessionResumptionUpdate) {
+        console.log(
+          "Session Resumption Update:",
+          response.sessionResumptionUpdate,
         );
 
-        const int16_16k = downsampleTo16k(int16_24k);
+        if (response.sessionResumptionUpdate.resumable) {
+          sessionId = response.sessionResumptionUpdate.newHandle;
 
-        if (simliClientRef.current) {
-          const audioBuffer = new Uint8Array(
-            int16_16k.buffer,
-            int16_16k.byteOffset,
-            int16_16k.byteLength,
+          // save to localStorage for future sessions
+          localStorage.setItem("gemini_session_id", sessionId);
+          console.log("Updated session ID for resumption:", sessionId);
+        }
+      } else if (response.serverContent) {
+        if (response.serverContent.modelTurn?.parts) {
+          // 1. Check for incoming audio chunks
+          const audioPart = response.serverContent?.modelTurn?.parts?.find(
+            (p) => p.inlineData?.mimeType.startsWith("audio/pcm"),
           );
-          simliClientRef.current.sendAudioData(audioBuffer);
-        }
 
-        if (DUAL_PIPELINE) {
-          play24kAudio(int16_24k);
+          if (audioPart) {
+            const pcm24kRaw = base64ToUint8Array(audioPart.inlineData.data);
+            const int16_24k = new Int16Array(
+              pcm24kRaw.buffer,
+              pcm24kRaw.byteOffset,
+              pcm24kRaw.byteLength / 2,
+            );
+
+            const int16_16k = downsampleTo16k(int16_24k);
+
+            if (simliClientRef.current) {
+              const audioBuffer = new Uint8Array(
+                int16_16k.buffer,
+                int16_16k.byteOffset,
+                int16_16k.byteLength,
+              );
+              simliClientRef.current.sendAudioData(audioBuffer);
+            }
+
+            if (DUAL_PIPELINE) {
+              play24kAudio(int16_24k);
+            }
+          }
         }
+      } else {
+        console.log("Received message from Gemini:", response);
       }
     };
 

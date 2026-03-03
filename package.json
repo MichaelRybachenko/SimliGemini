@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run server\" \"vite --port 5174\"",
+    "dev": "concurrently \"npm run server\" \"vite --port 5110\"",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
