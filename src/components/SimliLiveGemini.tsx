@@ -523,7 +523,7 @@ Voice: Maintain a professional, creative, and witty persona.
             setChatHistory((prev) => [
               ...prev,
               {
-                renderId,
+                id: renderId,
                 role: "assistant",
                 content: `📀 NEW CONCEPT:\n${concept.title} (${concept.genre})\nDescription:\n${concept.description}\nTracklist:\n${concept.tracklist}\nAlbum art prompt:\n${concept.art_prompt}`,
                 isImageLoading: true,
@@ -549,7 +549,7 @@ Voice: Maintain a professional, creative, and witty persona.
             )
               .then((imageUrl) => {
                 console.log(`Generating image: ${renderId}`);
-                
+
                 setChatHistory((prev) =>
                   prev.map((msg) => {
                     if (msg.id === renderId) {
@@ -1114,6 +1114,22 @@ Voice: Maintain a professional, creative, and witty persona.
                     }`}
                   >
                     {msg.content}
+                    {msg.isImageLoading && (
+                      <div className="mt-4 w-64 h-64 bg-gray-800 animate-pulse rounded-lg flex items-center justify-center border border-gray-600">
+                        <span className="text-gray-400 text-xs">
+                          Generating Cover Art...
+                        </span>
+                      </div>
+                    )}
+                    {msg.image && (
+                      <div className="mt-4">
+                        <img
+                          src={msg.image}
+                          alt="Generated Album Art"
+                          className="w-64 h-64 object-cover rounded-lg shadow-md border border-gray-600"
+                        />
+                      </div>
+                    )}
                     {msg.role === "assistant" && (
                       <button
                         onClick={() => handleDownload(msg.content, idx)}
