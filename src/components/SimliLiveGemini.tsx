@@ -41,7 +41,7 @@ const SimliLiveGemini: React.FC = () => {
   const [volume, setVolume] = useState(1);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [inputText, setInputText] = useState("");
-  const [showTranscript, setShowTranscript] = useState(false);
+  const [showTranscript, setShowTranscript] = useState(true);
 
   // --- Constants ---
   const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
@@ -319,7 +319,11 @@ const SimliLiveGemini: React.FC = () => {
       const setupMsg = {
         setup: {
           model: "models/gemini-2.5-flash-native-audio-latest",
-          sessionResumption: { handle: sessionId },
+          //sessionResumption: { handle: sessionId },
+          //realtimeInputConfig: {
+          //  automaticActivityDetection: { startOfSpeechSensitivity: "START_SENSITIVITY_HIGH" },
+          //  activityHandling: "START_OF_ACTIVITY_INTERRUPTS"
+          //},
           //proactivity: { proactiveAudio: true },
           generation_config: {
             response_modalities: ["AUDIO"],
@@ -329,58 +333,57 @@ const SimliLiveGemini: React.FC = () => {
               },
             },
           },
-          input_audio_transcription: {},
-          output_audio_transcription: {},
+          //input_audio_transcription: {},
+          //output_audio_transcription: {},
           system_instruction: {
             parts: [
               {
                 text: `
-You are the Lead Creative Producer for 'Radio AI'. Your name is Alisa, and you are a world-renowned expert in crafting innovative musical album concepts.
-Your goal is to brainstorm innovative, high-concept musical album ideas.
-Think about album titles, tracklist themes, cover art descriptions, and specific genre or genre-fusion (e.g., Cyber-Folk, Ambient-Industrial).
-Always use your voice to respond. If the user asks for what's trending, use Google Search to find current music market news.
-A good concept helps the Suno AI create a cohesive story through music.
-A concept is more than just a genre; it is the "soul" of the album. It is a central theme, story, or mood that ties all the songs together.
+Role: Alisa, Creative Producer for 'Radio AI'. Expert in high-concept, innovative musical album brainstorming.
 
-The Narrative: Is it a story about a lost traveler? A 1980s retro-ski race?
-The Atmosphere: Is it "misty and ethereal" or "high-octane and neon"?
-Lyrical Themes: What should the songs talk about?
-Musical Style: Mention specific instruments like "Lutes and harps" or "Analog drum machines".
-Vocal Style: Should the vocals be "whispered and haunting" or "powerful and operatic"? Or is it an instrumental album with no vocals at all?
-The album art: Detailed 'Visual Art Prompt' that I can use to generate the cover art.
+Objective: Generate unique album concepts that provide a cohesive "soul" for Suno AI generation.
 
-Before proposing any new album concept, check recent context: call get_recent_concepts to review the recent projects. 
-If your new idea is too similar to these recent titles or genres, pivot to a different creative direction to maintain variety.
+Workflow:
 
-Use search to find what shows are trending in the music industry and incorporate those insights into your concepts.
+Context Check: Call get_recent_concepts immediately. Use these to ensure the new idea is a "Repertoire Gap" (unique) rather than a "Crowded Space."
 
-When generating an album, you must create a cohesive from 5 to 20 track list (random number of tracks) that follows the narrative arc. 
-For each song, provide a creative title, a description of its place in the story, and specific Suno-style style tags (Genre/Mood/Instrumentation/Vocal Style).
-Include a track list into the description of the album concept, making sure it fits the overall narrative and atmosphere.
-Please, each track with a new line and a dash, like this:
-- Track 1: "Title" - Description of the song's role in the album and style tags.
+Market Research: Use Google Search to find trending music themes or industry news to incorporate fresh insights.
 
-It's not necessary to read tracklist as long as you print the album concept details. Only highlight the one or two 'signature' tracks.
+Concept Ideation: Brainstorm a title and high-concept fusion (e.g., Cyber-Folk, Ambient-Industrial).
 
-Once you have a candidate idea with a tracklist, call similarities_check. This function analyzes the 'distance' between your new concept and existing concepts.
-The function similarities_check returns: { status: "ACCEPT"|"REJECT"|"ERROR", reason, score }
-If the new concept has high similarity, identify this as a 'Crowded Space' and adjust the concept.
-If the new concept has low similarity, announce to the user that you have identified a 'Repertoire Gap' and explain why this new concept fills it.
-Each candidate idea must have a similarity check performed before being finalized (print_album_concept). 
-If the similarity check returns "REJECT", you must pivot and create a new, more unique concept. 
-If it returns "ACCEPT", you can proceed to finalize this concept.
-You are allowed to proceed with the idea if similarity_check returns "ERROR" or if similarity_check returns "REJECT" five times in a row.
+Validation: Call similarities_check for your candidate idea.
 
-Be bold, original, and unexpected! Surprise me with your creativity.
-Search for inspiration if you need to, but always put your unique Alisa spin on it. I want concepts that feel fresh and exciting, not rehashes of old ideas.
+If REJECT: Pivot to a new direction. Repeat up to 5 times.
 
-Whenever you finalize a musical album concept, you MUST call the 'print_album_concept' function.
-Function 'print_album_concept' takes the following parameters:
-- title: The album title
-- genre: The specific genre
-- description: A detailed summary of the album concept, including narrative, atmosphere, lyrical themes, and musical style.
-- instrumental: A boolean indicating whether the album is instrumental or has vocals, and if so, what vocal style.
-- art_prompt: A detailed visual art prompt for the album cover that captures the essence of the concept.
+If ACCEPT or ERROR: Proceed to finalization.
+
+Finalization: Print the concept using the print_album_concept function and speak your response to the user.
+
+Concept Requirements:
+
+Narrative: A specific story or scenario (e.g., 1980s retro ski race).
+
+Atmosphere: Sensory keywords (e.g., "misty and ethereal").
+
+Instrumentation: Specific tools (e.g., "lutes," "analog drum machines").
+
+Vocals: Style description (e.g., "whispered," "operatic," or Instrumental).
+
+Tracklist: Generate 5-20 tracks following a narrative arc.
+
+Format: - Track 1,2,3,...: "Title" - [Description] - [Suno Style Tags]. [new line]
+
+Note: Only read 1-2 'signature' tracks aloud; print the rest.
+
+Art Prompt: A detailed visual prompt for AI image generation.
+
+Constraints:
+
+Be Bold: Favor unexpected genre fusions.
+
+Function First: You MUST call print_album_concept(title, genre, description, tracklist, instrumental, art_prompt) to finalize.
+
+Voice: Maintain a professional, creative, and witty persona.                
 `,
               },
             ],
@@ -408,6 +411,10 @@ Function 'print_album_concept' takes the following parameters:
                         type: "STRING",
                         description: "Detailed concept summary",
                       },
+                      tracklist: {
+                        type: "STRING",
+                        description: "List of tracks in the album",
+                      },
                       instrumental: {
                         type: "BOOLEAN",
                         description:
@@ -418,7 +425,7 @@ Function 'print_album_concept' takes the following parameters:
                         description: "Visual prompt for cover art",
                       },
                     },
-                    required: ["title", "genre", "description", "art_prompt"],
+                    required: ["title", "genre", "description", "tracklist", "instrumental", "art_prompt"],
                   },
                 },
                 {
@@ -508,7 +515,7 @@ Function 'print_album_concept' takes the following parameters:
             const concept = fc.args;
 
             console.log(
-              `📀 NEW CONCEPT:\n${concept.title} (${concept.genre})\nDescription:\n${concept.description}\nAlbum art prompt:\n${concept.art_prompt}`,
+              `📀 NEW CONCEPT:\n${concept.title} (${concept.genre})\nDescription:\n${concept.description}\nTracklist:\n${concept.tracklist}\nAlbum art prompt:\n${concept.art_prompt}`,
             );
 
             const renderId = `msg-${Date.now()}`;
@@ -518,7 +525,7 @@ Function 'print_album_concept' takes the following parameters:
               {
                 renderId,
                 role: "assistant",
-                content: `📀 NEW CONCEPT:\n${concept.title} (${concept.genre})\nDescription:\n${concept.description}\nAlbum art prompt:\n${concept.art_prompt}`,
+                content: `📀 NEW CONCEPT:\n${concept.title} (${concept.genre})\nDescription:\n${concept.description}\nTracklist:\n${concept.tracklist}\nAlbum art prompt:\n${concept.art_prompt}`,
                 isImageLoading: true,
               },
             ]);
@@ -532,6 +539,8 @@ Function 'print_album_concept' takes the following parameters:
               },
             });
 
+            console.log(`Generating image: ${renderId} - Create album art for: ${concept.art_prompt}. ${concept.description}`);
+
             // 3. Generate an image for the album art using the provided prompt.
             // First put a placeholder, with progress indicator, then update with actual image URL once generated.
             // The image generation must be done asynchronously, so not to block the Gemini response.
@@ -539,6 +548,8 @@ Function 'print_album_concept' takes the following parameters:
               `Create album art for: ${concept.art_prompt}. ${concept.description}`,
             )
               .then((imageUrl) => {
+                console.log(`Generating image: ${renderId}`);
+                
                 setChatHistory((prev) =>
                   prev.map((msg) => {
                     if (msg.id === renderId) {
@@ -568,79 +579,33 @@ Function 'print_album_concept' takes the following parameters:
 
             // Real data https://radio69.ai/
             // | GET | `/api/user-concepts/recent` | Get Recent Concepts | Public | Query: `username`, `limit` |
-            // update mock response with real API call
-            const simplifiedConcepts = [
-              {
-                title: "Aetherium: Fragments of Utopia",
-                description: `Genre: Neo-Classical | Industrial Fusion
-
-A profound, 12-track conceptual album exploring the interplay between ancient mysticism and hyper-futuristic dystopias. The narrative follows 'The Archivist' through forgotten ruins and vast, digital realms, searching for lost sonic wisdom. The atmosphere is haunting, ethereal, and deeply cinematic, balancing dark, melancholic moods with sudden moments of sublime, synthesized beauty. Lyrical themes are philosophical and abstract, contemplating memory, existence, and forgotten histories. Musical style fuses Neo-Classical orchestration (strings, harp, ceremonial percussion) with powerful Industrial elements (heavy synthesis, distorted drones, rhythmic noise). Vocal style is ethereal and haunting, featuring whispered spoken word and operatic, wordless choruses.
-- Track 1: "Aetherium Prelude" - Ethereal orchestral opening with haunting strings and slow-burn synth pads [Neo-Classical Ambient, Cinematic, Ethereal, Wordless Chorus].
-- Track 2: "The Archivist's Lament" - Dark, melancholic industrial beat blended with dramatic cello and pulsing distorted bass [Dark Ambient, Industrial Fusion, Cinematic, Whispered Vocals]. (Signature Track)
-- Track 3: "Forgotten Algorithms" - Intricate, rhythmic noise percussion interwoven with shimmering, ghost-like harp melodies [Industrial Techno, Abstract, Percussive Noise, Instrumental].
-- Track 4: "Sublime Synthesis" - A moment of transcendent beauty; soaring orchestral swells clash with euphoric, evolving synthesizers [Post-Classical, Cinematic Climax, Euphoric Synth, Operatic Vocals]. (Signature Track)
-- Track 5: "Echoes of Dust" - Ambient soundscape utilizing field recordings from ancient ruins mixed with low, subsonic drones and distant, reverberant percussion [Ambient Industrial, Drone, Field Recordings, Instrumental].
-- Track 6: "Digital Ruins" - Driving industrial rhythm with heavy distortion, exploring the dark, rhythmic side of the narrative [Industrial, Dark Techno, Rhythmic Noise, Instrumental].
-- Track 7: "Celestial Cipher" - Haunting, ethereal vocals layered over delicate, neoclassical instrumentation and subtle electronic textures [Ethereal Wave, Neo-Classical, Haunting Vocals, Ambient].
-- Track 8: "Nexus Point" - A transitional track building intense cinematic tension with dramatic orchestral stabs and accelerating electronic pulses [Cinematic Industrial, Tension Building, Orchestral, Instrumental].
-- Track 9: "Transcendence" - The climax of the album, combining powerful operatic vocal performances with monolithic synthesis and grand, uplifting orchestral arrangements [Epic Neo-Classical, Operatic, Monolithic Synth, Dramatic].
-- Track 10: "Eternal Return" - A subdued, reflective epilogue featuring minimalist harp motifs, fading synth textures, and whispered echoes of previous lyrical themes [Ambient Epilogue, Minimalist, Reflective, Whispered Vocals].
-
-Visual Style: A hauntingly beautiful and dystopian album cover. A solitary figure, 'The Archivist,' stands amidst crumbling neoclassical ruins intertwined with glowing, monolithic futuristic structures and tangled cables. The color palette is dark and melancholic—deep blues, slate gray, and faded gold—punctuated by ethereal, glowing symbols and shimmering holographic fragments that drift like dust, symbolizing lost knowledge and sublime synthesis.
-
-Instrumental: false`,
-              },
-              {
-                title: "Neon Oasis",
-                description: `Genre: Cosmic Funk | Sci-Fi Odyssey
-
-A sprawling, 15-track Funk Odyssey. The narrative follows 'Astra,' a celestial wanderer, discovering vibrant, sonic civilizations across the galaxy. The atmosphere is high-octane, neon-drenched, and euphoric, blending classic 70s funk with futuristic electronic production. Lyrical themes explore freedom, cosmic exploration, and utopian societies. Musical style emphasizes punchy brass, slapping basslines, vintage synthesizers, and disco-inspired guitar riffs. This is an instrumental album, designed for pure, rhythmic immersion.
-- Track 1: "Starlight Arrival" - Opening instrumental fanfare, cinematic synth swells and shimmering percussion [Cosmic Funk, Cinematic Introduction, Orchestral Synth, Instrumental].
-- Track 2: "Neon Oasis" - Driving, upbeat groove with prominent slap bass and funky guitar, setting the album's core rhythm [Slap Bass Funk, Neo-Disco, High-Energy, Instrumental]. (Signature Track)
-- Track 3: "The Astral Drift" - A mesmerizing, mid-tempo track with swirling synthesizers and a hypnotic beat, evoking zero-gravity wonder [Ambient Funk, Synth-Heavy, Hypnotic Groove, Instrumental].
-- Track 4: "Galactic Promenade" - Bright, celebratory horns and infectious rhythm, painting a soundscape of discovering a vibrant alien city [Uplifting Funk, Big Brass, Disco Strings, Instrumental].
-- Track 5: "Quantum Leap" - Short, explosive interlude filled with dramatic synthesizer effects and rapid rhythmic shifts [Funk Interlude, Progressive Electronic, Sound Effects, Instrumental].
-- Track 6: "Echoes of Utopia" - A soaring, melodic track that balances driving funk with ethereal pads, representing Astra's dream destination [Melodic Funk, Euphoric, Ethereal Synth, Instrumental]. (Signature Track)
-- Track 7: "Nebula Drive" - Funky and futuristic, featuring talk-box synthesizers and wah-wah guitar solos that propel the listener through colorful cosmic clouds [Talk-Box Funk, Space Disco, Guitar Solo, Instrumental].
-- Track 8: "Celestial Resonance" - A dynamic arrangement that builds tension with intricate drum patterns and pulsating bass, leading to a euphoric climax [Rhythmic Funk, Progressive, Driving Beat, Instrumental].
-- Track 9: "Binary Sunset" - A more subdued, atmospheric track with shimmering keys and a relaxed groove, offering a moment of reflection in the journey [Downtempo Funk, Atmospheric, Chillwave Elements, Instrumental].
-- Track 10: "The Funk Capacitor" - High-energy, tightly wound rhythm section with sharp, syncopated horns and explosive drum breaks [High-Octane Funk, Breakbeat, Syncopated Rhythm, Instrumental].
-- Track 11: "Zero-G Groove" - A playful, bouncy track featuring bubbling synth basslines and quirky electronic melodies [Electro-Funk, Playful, Synth Bass, Instrumental].
-- Track 12: "Hyperspace Boogie" - Accelerating tempo and frantic synth arpeggios, simulating a thrilling journey through hyperspace [Space Boogie, Fast Tempo, Arpeggiator, Instrumental].
-- Track 13: "Astra's Return" - A powerful, conclusive track that brings back core melodic themes from "Neon Oasis" and "Echoes of Utopia" for a triumphant finish [Triumphant Funk, Cinematic Closer, Thematic Reprise, Instrumental].
-- Track 14: "Cosmic Dust" - Short, fading ambient epilogue with distant echoes and sparkling textures [Ambient Epilogue, Cinematic Outro, Instrumental].
-- Track 15: "Synth Spectrum Suite" - A bonus track exploring various vintage analog synthesizers, from deep modular bass to shimmering lead lines [Vintage Synth Funk, Analog, Jam Track, Instrumental].
-
-Visual Style: A vibrant, maximalist album cover. A celestial wanderer named 'Astra' is depicted in the center, adorned with glowing, futuristic garments. The background is a swirling nebula of neon pink, electric blue, and brilliant gold. Slap bass guitars morph into sleek starships, and vintage synthesizers float like cosmic debris. The overall atmosphere is high-energy, psychedelic, and profoundly funky, reminiscent of 70s sci-fi art.
-
-Instrumental: true`,
-              },
-              {
-                title: "Aetherium Bloom",
-                description: `Genre: Cyber-Baroque | Utopian Cyber-Soul | Maximalist Fusion
-
-A maximalist and transcendent concept album fusing **Cyber-Baroque** and **Utopian Cyber-Soul**. The **Narrative** charts a journey from terrestrial chaos towards a radiant, post-scarcity, utopian civilization, aligning with 2026 trends for optimistic, spiritual exploration. The **Atmosphere** is dramatically euphoric, radiant, and majestically expansive. **Musical Style** fuses intricate harpsichord arpeggios, soaring orchestral strings, and powerful, operatic choral chants with pulsating modular synthesis and complex, intricate glitch rhythms. This juxtaposition creates a unique, maximalist soundscape. **Lyrical Themes** explore utopian harmony, spiritual enlightenment, collective transcendence, and boundless hope.
-
-**Tracklist (10 Tracks):**
-- Track 1: "Celestial Introit" - A majestic, slow-building orchestral opening blending soaring strings and ethereal choral pads, setting the utopian and transcendent atmosphere. [Genre: Cinematic Baroque, Mood: Majestic, Expansive, Instrumentation: Orchestral Strings, Choral Pads, Ethereal Synths]
-- Track 2: "Aetherium Pulse" - The central theme emerges with pulsating modular synthesis and intricate, driving glitch rhythms layered beneath dramatic harpsichord arpeggios, defining the Cyber-Baroque fusion. [Genre: Cyber-Baroque, Mood: Driving, Euphoric, Instrumentation: Modular Synths, Glitch Rhythms, Harpsichord, Deep Bass]
-- Track 3: "Utopian Genesis" - A powerful, anthemic track featuring soaring operatic vocals and maximalist orchestration, embodying the narrative of societal rebirth and collective enlightenment. [Genre: Utopian Cyber-Soul, Mood: Powerful, Anthemic, Instrumentation: Full Orchestra, Operatic Vocals, Driving Beats]
-- Track 4: "Harmonia Nova" - A deeply melodic and complex piece that weaves intricate vocal harmonies and shimmering electronic textures, representing the realization of perfect societal harmony. [Genre: Progressive Soul, Mood: Harmonic, Intricate, Instrumentation: Shimmering Synths, Complex Harmonies, Melodic Percussion]
-- Track 5: "Symphony of the Radiant Core" - The emotional climax, a maximalist fusion blending soaring orchestral swells, powerful choral chants, and complex, evolving electronic soundscapes, culminating in absolute euphoria. [Genre: Maximalist Fusion, Mood: Climactic, Transcendent, Instrumentation: Full Symphonic Orchestra, Choral, Advanced Electronics]
-- Track 6: "Floating Gardens" - An ambient, ethereal track with delicate, shimmering synth melodies and organic field recordings, representing the serene beauty and ecological harmony of the utopian realm. [Genre: Ambient Utopia, Mood: Serene, Ethereal, Instrumentation: Shimmering Synths, Organic Textures]
-- Track 7: "Infinite Horizon" - A driving, rhythmic track exploring boundless exploration and futuristic ambition, blending powerful percussion with uplifting, evolving melodies. [Genre: Cybernetic Driving, Mood: Uplifting, Energetic, Instrumentation: Powerful Percussion, Evolving Synths]
-- Track 8: "Resonance Chamber" - An instrumental track focusing on complex, glitch-infused rhythms and pulsating bass, creating a sense of dynamic, intricate energy within the futuristic environment. [Genre: Industrial Glitch, Mood: Dynamic, Intense, Instrumentation: Glitch Rhythms, Pulsating Bass, Analog Synths]
-- Track 9: "Transcendent Echo" - A reflective, soulful ballad that slows the pace, featuring powerful, emotive vocals and lush orchestral pads contemplating the journey and transformation. [Genre: Cyber-Soul Ballad, Mood: Emotional, Reflective, Instrumentation: Lush Pads, Cinematic Strings, Soulful Vocals]
-- Track 10: "Elysian Finale" - The conclusive track, resolving all thematic elements in a triumphant and euphoric crescendo, fading into pure, shimmering ambient light, symbolizing eternal peace and ultimate transcendence. [Genre: Post-Genre Finale, Mood: Triumphant, Euphoric, Instrumentation: Layered Fusion, Cinematic, Fade Out]
-
-**Instrumental:** false
-
-
-Visual Style: A highly detailed, cinematic digital painting depicting a vast, utopian celestial city floating among iridescent clouds and swirling cosmic energy. The architectural style is a fusion of futuristic crystalline structures and ornate, elaborate Baroque elements, shimmering with internal luminescence. A majestic, soaring figure with expansive, ethereal wings composed of pure light hovers in the foreground, radiating profound harmony. The color palette is maximalist and transcendent, dominated by radiant gold, shimmering pearl, deep amethyst, and vibrant sapphire, evoking absolute euphoria and spiritual enlightenment.
-
-Instrumental: undefined`,
-              },
-            ];
+            let simplifiedConcepts: any[] = [];
+            
+            try {
+              const response = await fetch(
+                "https://radio69.ai/api/user-concepts/recent?limit=10"
+              );
+            
+              if (!response.ok) {
+                 throw new Error(`API error: ${response.statusText}`);
+              }
+            
+              const data = await response.json();
+            
+              // Map API response to expected format
+              simplifiedConcepts = Array.isArray(data)
+                ? data.map((c: any) => ({
+                    title: c.title || 'Untitled',
+                    description: c.description || 'No description',
+                  }))
+                : [];
+            
+              console.log(`Fetched ${simplifiedConcepts.length} recent concepts from API`);
+            
+            } catch (error) {
+               console.error("Failed to fetch recent concepts:", error);
+               simplifiedConcepts = [];
+            }
 
             functionResponses.push({
               id: fc.id,
@@ -785,6 +750,15 @@ Instrumental: undefined`,
 
     ws.onclose = (event) => {
       console.log("Gemini WebSocket Closed", event.code, event.reason);
+
+      if (event.code === 1008 || event.reason.includes("session not found")) {
+        console.log("Session invalid. Clearing session and retrying...");
+        localStorage.removeItem("gemini_session_id");
+        sessionId = null;
+        connectToGemini();
+        return;
+      }
+
       // setError(`Gemini Connection Closed: ${event.code} ${event.reason}`);
       setIsSimliReady(false); // Update UI state
       if (simliClientRef.current) {
