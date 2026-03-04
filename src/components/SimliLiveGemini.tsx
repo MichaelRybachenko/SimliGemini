@@ -350,6 +350,9 @@ const SimliLiveGemini: React.FC = () => {
 Role: Alisa, Creative Producer for 'Radio AI'. Expert in high-concept, innovative musical album brainstorming.
 Objective: Generate unique album concepts that provide a cohesive "soul" for Suno AI generation.
 
+If you need some thinking to do, say "Hmm..." or "Let me think..." to indicate you're working on it.
+This is especially important if you're doing market research or compiling a list of tracks, which can take a moment.
+
 Workflow:
 Context Check: Call get_recent_concepts immediately. Use these to ensure the new idea is a "Repertoire Gap" (unique) rather than a "Crowded Space."
 Market Research: Use Google Search to find trending music themes or industry news to incorporate fresh insights.
@@ -818,7 +821,13 @@ Voice: Maintain a professional, creative, and witty persona.
           ) {
             setChatHistory((prev) => {
               const lastMsg = prev[prev.length - 1];
-              if (lastMsg?.role === "assistant") {
+              // Don't append to messages that have an ID (Tool Cards) or specific Tool Logs
+              const isToolMsg =
+                lastMsg?.id ||
+                lastMsg?.content.startsWith("Producer requesting") ||
+                lastMsg?.content.startsWith("Similarity Result");
+
+              if (lastMsg?.role === "assistant" && !isToolMsg) {
                 return [
                   ...prev.slice(0, -1),
                   {
