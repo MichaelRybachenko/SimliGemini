@@ -7,6 +7,11 @@ const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 if (!apiKey) {
   throw new Error("VITE_GEMINI_API_KEY environment variable not set.");
 }
+
+const PROJECT_ID = import.meta.env.PROJECT_ID;
+const LOCATION = import.meta.env.LOCATION;
+const MODEL_ID = import.meta.env.MODEL_ID;
+
 const ai = new GoogleGenAI({ apiKey });
 
 const SimliLiveGemini: React.FC = () => {
@@ -318,7 +323,8 @@ const SimliLiveGemini: React.FC = () => {
       // Note: Gemini Live API often requires a specific 'setup' payload as the VERY FIRST message.
       const setupMsg = {
         setup: {
-          model: "models/gemini-2.5-flash-native-audio-latest",
+          model: `projects/${PROJECT_ID}/locations/${LOCATION}/models/${MODEL_ID}`,
+          //model: "models/gemini-2.5-flash-native-audio-latest",
           //sessionResumption: { handle: sessionId },
           //realtimeInputConfig: {
           //  automaticActivityDetection: { startOfSpeechSensitivity: "START_SENSITIVITY_HIGH" },

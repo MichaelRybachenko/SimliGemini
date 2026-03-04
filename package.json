@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run server\" \"vite --port 5110\"",
+    "dev": "vite --port 5110",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
@@ -31,7 +31,6 @@
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.0.4",
     "autoprefixer": "^10.4.21",
-    "concurrently": "^9.2.1",
     "tailwindcss": "^4.1.14",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
