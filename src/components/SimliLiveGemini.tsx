@@ -4,13 +4,20 @@ import { LogLevel, SimliClient } from "simli-client";
 import { GoogleGenAI } from "@google/genai";
 
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+
 if (!apiKey) {
   throw new Error("VITE_GEMINI_API_KEY environment variable not set.");
 }
 
-const PROJECT_ID = import.meta.env.PROJECT_ID;
-const LOCATION = import.meta.env.LOCATION;
-const MODEL_ID = import.meta.env.MODEL_ID;
+const VITE_PROJECT_ID = import.meta.env.VITE_PROJECT_ID;
+const VITE_LOCATION = import.meta.env.VITE_LOCATION;
+const VITE_MODEL_ID = import.meta.env.VITE_MODEL_ID;
+
+if (!VITE_PROJECT_ID || !VITE_LOCATION || !VITE_MODEL_ID) {
+  throw new Error(
+    "VITE_PROJECT_ID, VITE_LOCATION, or VITE_MODEL_ID environment variable not set.",
+  );
+}
 
 const ai = new GoogleGenAI({ apiKey });
 
@@ -28,6 +35,8 @@ const SimliLiveGemini: React.FC = () => {
   const audioBufferRef = useRef<Int16Array | null>(null); // Buffer for accumlating audio samples
   const playbackContextRef = useRef<AudioContext | null>(null);
   const nextStartTimeRef = useRef<number>(0);
+  const isResuming = useRef(false);
+  const latestSessionHandle = useRef<string | null>(null);
 
   // --- State ---
   const [isSimliReady, setIsSimliReady] = useState(false);
@@ -52,17 +61,19 @@ const SimliLiveGemini: React.FC = () => {
   const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
   const SIMLI_API_KEY = import.meta.env.VITE_SIMLI_API_KEY;
   const SIMLI_FACE_ID = import.meta.env.VITE_SIMLI_FACE_ID;
-  const DUAL_PIPELINE = false; // Set to true for Gemini audio, false for Simli audio
-
-  let sessionId: string | null = null;
-
+  
   /**
    * Calls the backend to generate an embedding for the potential new album
    * and checks for similarities against existing albums.
    * Logic: 0.8+ is "Repetitive theme" (REJECT), < 0.4 is "Unique creative gap" (ACCEPT).
    */
   const similaritiesCheck = useCallback(
-    async (title: string, genre: string, description: string) => {
+    async (
+      title: string,
+      genre: string,
+      description: string,
+      tracklist: string,
+    ) => {
       try {
         console.log(`Checking similarities for concept: ${title}`);
 
@@ -74,7 +85,11 @@ const SimliLiveGemini: React.FC = () => {
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ title, genre, description }),
+            body: JSON.stringify({
+              title,
+              genre,
+              description: `${description}\n${tracklist}`,
+            }),
           },
         );
 
@@ -130,7 +145,7 @@ const SimliLiveGemini: React.FC = () => {
       );
 
       if (!imagePart || !imagePart.inlineData) {
-        console.warn(
+        console.log(
           "Gemini response missing image data:",
           JSON.stringify(response, null, 2),
         );
@@ -179,39 +194,6 @@ const SimliLiveGemini: React.FC = () => {
       binary += String.fromCharCode(bytes[i]);
     }
     return window.btoa(binary);
-  };
-
-  // Adjust this value based on your testing (usually 150ms - 300ms)
-  const LATENCY_COMPENSATION = 0.22; // 215ms delay
-
-  const play24kAudio = (int16Data: Int16Array) => {
-    if (!playbackContextRef.current) {
-      playbackContextRef.current = new AudioContext({ sampleRate: 24000 });
-      // Initialize nextStartTime with a small buffer for the network
-      nextStartTimeRef.current =
-        playbackContextRef.current.currentTime + LATENCY_COMPENSATION;
-    }
-
-    const ctx = playbackContextRef.current;
-    const float32 = new Float32Array(int16Data.length);
-    for (let i = 0; i < int16Data.length; i++) {
-      float32[i] = int16Data[i] / 32768; // Convert PCM16 to Float32
-    }
-
-    const buffer = ctx.createBuffer(1, float32.length, 24000);
-    buffer.copyToChannel(float32, 0);
-
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.connect(ctx.destination);
-
-    // Schedule playback with the offset
-    const startTime = Math.max(
-      ctx.currentTime + LATENCY_COMPENSATION,
-      nextStartTimeRef.current,
-    );
-    source.start(startTime);
-    nextStartTimeRef.current = startTime + buffer.duration;
   };
 
   // Downsample form 24000 (Gemini) to 16000 (Simli)
@@ -306,30 +288,41 @@ const SimliLiveGemini: React.FC = () => {
     }
   };
 
-  const connectToGemini = () => {
+  const connectToGemini = (resumeHandle: string | null = null) => {
     const encodedKey = GEMINI_API_KEY; // Should be valid
     const url = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${encodedKey}`;
 
     // Create WebSocket with correct protocol version if needed, or just default
     const ws = new WebSocket(url);
-    wsRef.current = ws;
+
+    // If not doing a seamless resumption, set as main socket immediately
+    if (!isResuming.current) {
+      wsRef.current = ws;
+    }
 
     ws.onopen = () => {
-      sessionId = localStorage.getItem("gemini_session_id");
-      
-      console.log(`Gemini WebSocket Connected, sending setup message with session ID: ${sessionId ? sessionId : "None"}`);
+      const currentSessionId = resumeHandle;
+
+      console.log(
+        `Gemini WebSocket Connected. Resuming? ${!!resumeHandle}. Session ID: ${currentSessionId || "None"}`,
+      );
 
       // Initial Setup Message
       // Note: Gemini Live API often requires a specific 'setup' payload as the VERY FIRST message.
       const setupMsg = {
         setup: {
-          model: `projects/${PROJECT_ID}/locations/${LOCATION}/models/${MODEL_ID}`,
-          //model: "models/gemini-2.5-flash-native-audio-latest",
-          //sessionResumption: { handle: sessionId },
-          //realtimeInputConfig: {
-          //  automaticActivityDetection: { startOfSpeechSensitivity: "START_SENSITIVITY_HIGH" },
-          //  activityHandling: "START_OF_ACTIVITY_INTERRUPTS"
-          //},
+          //model: `projects/${VITE_PROJECT_ID}/locations/${VITE_LOCATION}/models/${VITE_MODEL_ID}`,
+          model: VITE_MODEL_ID,
+          //...(resumeHandle
+          //  ? { sessionResumption: { handle: resumeHandle } }
+          //  : {}),
+          sessionResumption: { handle: resumeHandle },
+          realtimeInputConfig: {
+            automaticActivityDetection: {
+              startOfSpeechSensitivity: "START_SENSITIVITY_HIGH",
+            },
+            activityHandling: "START_OF_ACTIVITY_INTERRUPTS",
+          },
           //proactivity: { proactiveAudio: true },
           generation_config: {
             response_modalities: ["AUDIO"],
@@ -339,44 +332,31 @@ const SimliLiveGemini: React.FC = () => {
               },
             },
           },
-          //input_audio_transcription: {},
-          //output_audio_transcription: {},
+          input_audio_transcription: {},
+          output_audio_transcription: {},
           system_instruction: {
             parts: [
               {
                 text: `
 Role: Alisa, Creative Producer for 'Radio AI'. Expert in high-concept, innovative musical album brainstorming.
-
 Objective: Generate unique album concepts that provide a cohesive "soul" for Suno AI generation.
 
 Workflow:
-
 Context Check: Call get_recent_concepts immediately. Use these to ensure the new idea is a "Repertoire Gap" (unique) rather than a "Crowded Space."
-
 Market Research: Use Google Search to find trending music themes or industry news to incorporate fresh insights.
-
-Concept Ideation: Brainstorm a title and high-concept fusion (e.g., Cyber-Folk, Ambient-Industrial).
-
+Concept Ideation: Brainstorm a title and high-concept fusion.
 Validation: Call similarities_check for your candidate idea.
-
 If REJECT: Pivot to a new direction. Repeat up to 5 times.
-
 If ACCEPT or ERROR: Proceed to finalization.
 
 Finalization: Print the concept using the print_album_concept function and speak your response to the user.
 
 Concept Requirements:
-
 Narrative: A specific story or scenario (e.g., 1980s retro ski race).
-
 Atmosphere: Sensory keywords (e.g., "misty and ethereal").
-
 Instrumentation: Specific tools (e.g., "lutes," "analog drum machines").
-
 Vocals: Style description (e.g., "whispered," "operatic," or Instrumental).
-
 Tracklist: Generate 5-20 tracks following a narrative arc.
-
 Format: - Track 1,2,3,...: "Title" - [Description] - [Suno Style Tags]. [new line]
 
 Note: Only read 1-2 'signature' tracks aloud; print the rest.
@@ -384,9 +364,7 @@ Note: Only read 1-2 'signature' tracks aloud; print the rest.
 Art Prompt: A detailed visual prompt for AI image generation.
 
 Constraints:
-
 Be Bold: Favor unexpected genre fusions.
-
 Function First: You MUST call print_album_concept(title, genre, description, tracklist, instrumental, art_prompt) to finalize.
 
 Voice: Maintain a professional, creative, and witty persona.                
@@ -431,7 +409,14 @@ Voice: Maintain a professional, creative, and witty persona.
                         description: "Visual prompt for cover art",
                       },
                     },
-                    required: ["title", "genre", "description", "tracklist", "instrumental", "art_prompt"],
+                    required: [
+                      "title",
+                      "genre",
+                      "description",
+                      "tracklist",
+                      "instrumental",
+                      "art_prompt",
+                    ],
                   },
                 },
                 {
@@ -459,8 +444,12 @@ Voice: Maintain a professional, creative, and witty persona.
                         type: "STRING",
                         description: "Detailed concept summary",
                       },
+                      tracklist: {
+                        type: "STRING",
+                        description: "List of tracks in the album",
+                      },
                     },
-                    required: ["title", "genre", "description"],
+                    required: ["title", "genre", "description", "tracklist"],
                   },
                 },
               ],
@@ -470,6 +459,11 @@ Voice: Maintain a professional, creative, and witty persona.
       };
 
       ws.send(JSON.stringify(setupMsg));
+
+      if (resumeHandle) {
+        console.log("Resuming session... skipping welcome message.");
+        return;
+      }
 
       // Sending the welcome message with a slight delay allows the server to process the setup message first.
       // This prevents race conditions where 'client_content' and 'realtime_input' (audio) arrive before the session is ready.
@@ -503,6 +497,19 @@ Voice: Maintain a professional, creative, and witty persona.
     ws.onmessage = async (event: MessageEvent) => {
       const rawData = await event.data.text();
       const response = JSON.parse(rawData);
+
+      // Seamless Resumption: Switch to new socket on first message
+      if (ws !== wsRef.current && isResuming.current) {
+        console.log(
+          "New session established via resumption. Switching sockets.",
+        );
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          console.log("Closing old socket...");
+          wsRef.current.close(1000, "Resumption Complete");
+        }
+        wsRef.current = ws;
+        isResuming.current = false;
+      }
 
       // Handle Setup Completion (if applicable) or Initial triggering
       // Note: Gemini API doesn't always send a specific "setup complete" message,
@@ -545,7 +552,9 @@ Voice: Maintain a professional, creative, and witty persona.
               },
             });
 
-            console.log(`Generating image: ${renderId} - Create album art for: ${concept.art_prompt}. ${concept.description}`);
+            console.log(
+              `Generating image: ${renderId} - Create album art for: ${concept.art_prompt}. ${concept.description}`,
+            );
 
             // 3. Generate an image for the album art using the provided prompt.
             // First put a placeholder, with progress indicator, then update with actual image URL once generated.
@@ -586,31 +595,32 @@ Voice: Maintain a professional, creative, and witty persona.
             // Real data https://radio69.ai/
             // | GET | `/api/user-concepts/recent` | Get Recent Concepts | Public | Query: `username`, `limit` |
             let simplifiedConcepts: any[] = [];
-            
+
             try {
               const response = await fetch(
-                "https://radio69.ai/api/user-concepts/recent?limit=10"
+                "https://radio69.ai/api/user-concepts/recent?limit=10",
               );
-            
+
               if (!response.ok) {
-                 throw new Error(`API error: ${response.statusText}`);
+                throw new Error(`API error: ${response.statusText}`);
               }
-            
+
               const data = await response.json();
-            
+
               // Map API response to expected format
               simplifiedConcepts = Array.isArray(data)
                 ? data.map((c: any) => ({
-                    title: c.title || 'Untitled',
-                    description: c.description || 'No description',
+                    title: c.title || "Untitled",
+                    description: c.description || "No description",
                   }))
                 : [];
-            
-              console.log(`Fetched ${simplifiedConcepts.length} recent concepts from API`);
-            
+
+              console.log(
+                `Fetched ${simplifiedConcepts.length} recent concepts from API`,
+              );
             } catch (error) {
-               console.error("Failed to fetch recent concepts:", error);
-               simplifiedConcepts = [];
+              console.error("Failed to fetch recent concepts:", error);
+              simplifiedConcepts = [];
             }
 
             functionResponses.push({
@@ -625,18 +635,18 @@ Voice: Maintain a professional, creative, and witty persona.
               `Sent ${simplifiedConcepts.length} recent concepts to Producer.`,
             );
           } else if (fc.name === "similarities_check") {
-            // "title", "genre", "description"
+            // "title", "genre", "description", "tracklist"
             const concept = fc.args;
 
             console.log(
-              `Producer requesting similarities check:\n${concept.title} (${concept.genre})\nDescription:\n${concept.description}`,
+              `Producer requesting similarities check:\n${concept.title} (${concept.genre})\nDescription:\n${concept.description}\nTracklist:\n${concept.tracklist}`,
             );
 
             setChatHistory((prev) => [
               ...prev,
               {
                 role: "assistant",
-                content: `Producer requesting similarities check:\n${concept.title} (${concept.genre})\nDescription:\n${concept.description}`,
+                content: `Producer requesting similarities check:\n${concept.title} (${concept.genre})\nDescription:\n${concept.description}\nTracklist:\n${concept.tracklist}`,
               },
             ]);
 
@@ -645,6 +655,7 @@ Voice: Maintain a professional, creative, and witty persona.
                 concept.title,
                 concept.genre,
                 concept.description,
+                concept.tracklist,
               );
 
               console.log(
@@ -699,7 +710,26 @@ Voice: Maintain a professional, creative, and witty persona.
           }),
         );
       } else if (response.goAway) {
-        console.log("Received goAway from Gemini:", response.goAway);
+        const timeLeft = response.goAway.timeLeft;
+
+        console.log(
+          `Gemini signaled shutdown. Time left: ${timeLeft}, resumption Handle: ${latestSessionHandle.current}, isResuming: ${isResuming.current}`,
+        );
+
+        if (latestSessionHandle.current && !isResuming.current) {
+          isResuming.current = true;
+          // Trigger pre-emptive resumption
+          console.log("Triggering pre-emptive session resumption in 3s...");
+          setTimeout(() => {
+            const handle = latestSessionHandle.current;
+            if (handle) {
+              console.log("Connecting with resumption handle:", handle);
+              connectToGemini(handle);
+            } else {
+              console.warn("Resumption handle:", handle);
+            }
+          }, 3000);
+        }
       } else if (response.sessionResumptionUpdate) {
         console.log(
           "Session Resumption Update:",
@@ -707,11 +737,12 @@ Voice: Maintain a professional, creative, and witty persona.
         );
 
         if (response.sessionResumptionUpdate.resumable) {
-          sessionId = response.sessionResumptionUpdate.newHandle;
-
-          // save to localStorage for future sessions
-          localStorage.setItem("gemini_session_id", sessionId);
-          console.log("Updated session ID for resumption:", sessionId);
+          latestSessionHandle.current =
+            response.sessionResumptionUpdate.newHandle;
+          console.log(
+            "Updated session ID for resumption:",
+            latestSessionHandle.current,
+          );
         }
       } else if (response.serverContent) {
         if (response.serverContent.modelTurn?.parts) {
@@ -722,6 +753,7 @@ Voice: Maintain a professional, creative, and witty persona.
 
           if (audioPart) {
             const pcm24kRaw = base64ToUint8Array(audioPart.inlineData.data);
+
             const int16_24k = new Int16Array(
               pcm24kRaw.buffer,
               pcm24kRaw.byteOffset,
@@ -736,11 +768,10 @@ Voice: Maintain a professional, creative, and witty persona.
                 int16_16k.byteOffset,
                 int16_16k.byteLength,
               );
-              simliClientRef.current.sendAudioData(audioBuffer);
-            }
 
-            if (DUAL_PIPELINE) {
-              play24kAudio(int16_24k);
+              // console.log("Sending audio data with updated...");
+
+              simliClientRef.current.sendAudioData(audioBuffer);
             }
           }
         }
@@ -757,10 +788,14 @@ Voice: Maintain a professional, creative, and witty persona.
     ws.onclose = (event) => {
       console.log("Gemini WebSocket Closed", event.code, event.reason);
 
+      // If this socket is not the active one, ignore the close event
+      if (ws !== wsRef.current) {
+        console.log("Inactive socket closed. Ignoring.");
+        return;
+      }
+
       if (event.code === 1008 || event.reason.includes("session not found")) {
         console.log("Session invalid. Clearing session and retrying...");
-        localStorage.removeItem("gemini_session_id");
-        sessionId = null;
         connectToGemini();
         return;
       }
@@ -823,6 +858,7 @@ Voice: Maintain a professional, creative, and witty persona.
           return;
 
         const base64Audio = arrayBufferToBase64(event.data);
+
         const msg = {
           realtime_input: {
             media_chunks: [
@@ -833,6 +869,7 @@ Voice: Maintain a professional, creative, and witty persona.
             ],
           },
         };
+
         wsRef.current.send(JSON.stringify(msg));
       };
 
@@ -876,13 +913,8 @@ Voice: Maintain a professional, creative, and witty persona.
   // Handle Output Volume
   useEffect(() => {
     if (audioRef.current) {
-      if (DUAL_PIPELINE) {
-        audioRef.current.muted = true;
-        audioRef.current.volume = 0;
-      } else {
-        audioRef.current.muted = isAudioMuted;
-        audioRef.current.volume = volume;
-      }
+      audioRef.current.muted = isAudioMuted;
+      audioRef.current.volume = volume;
     }
   }, [volume, isAudioMuted]);
 
