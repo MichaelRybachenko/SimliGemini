@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { LogLevel, SimliClient } from "simli-client";
 
 import { GoogleGenAI } from "@google/genai";
+import { tr } from "motion/react-client";
 
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
@@ -13,10 +14,8 @@ const VITE_PROJECT_ID = import.meta.env.VITE_PROJECT_ID;
 const VITE_LOCATION = import.meta.env.VITE_LOCATION;
 const VITE_MODEL_ID = import.meta.env.VITE_MODEL_ID;
 
-if (!VITE_PROJECT_ID || !VITE_LOCATION || !VITE_MODEL_ID) {
-  throw new Error(
-    "VITE_PROJECT_ID, VITE_LOCATION, or VITE_MODEL_ID environment variable not set.",
-  );
+if (!VITE_MODEL_ID) {
+  throw new Error("VITE_MODEL_ID environment variable not set.");
 }
 
 const ai = new GoogleGenAI({ apiKey });
@@ -37,6 +36,8 @@ const SimliLiveGemini: React.FC = () => {
   const nextStartTimeRef = useRef<number>(0);
   const isResuming = useRef(false);
   const latestSessionHandle = useRef<string | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef(true);
 
   // --- State ---
   const [isSimliReady, setIsSimliReady] = useState(false);
@@ -56,12 +57,14 @@ const SimliLiveGemini: React.FC = () => {
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [inputText, setInputText] = useState("");
   const [showTranscript, setShowTranscript] = useState(true);
+  const [showThinking, setShowThinking] = useState(true);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   // --- Constants ---
   const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
   const SIMLI_API_KEY = import.meta.env.VITE_SIMLI_API_KEY;
   const SIMLI_FACE_ID = import.meta.env.VITE_SIMLI_FACE_ID;
-  
+
   /**
    * Calls the backend to generate an embedding for the potential new album
    * and checks for similarities against existing albums.
@@ -270,8 +273,14 @@ const SimliLiveGemini: React.FC = () => {
         3000,
       );
 
-      simliClientRef.current.on("speaking", () => console.log("SPEAKING..."));
-      simliClientRef.current.on("silent", () => console.log("SILENT..."));
+      simliClientRef.current.on("speaking", () => {
+        console.log("SPEAKING...");
+        setIsSpeaking(true);
+      });
+      simliClientRef.current.on("silent", () => {
+        console.log("SILENT...");
+        setIsSpeaking(false);
+      });
       simliClientRef.current.on("stop", () =>
         console.log("SimliClient disconnected"),
       );
@@ -311,7 +320,7 @@ const SimliLiveGemini: React.FC = () => {
       // Note: Gemini Live API often requires a specific 'setup' payload as the VERY FIRST message.
       const setupMsg = {
         setup: {
-          //model: `projects/${VITE_PROJECT_ID}/locations/${VITE_LOCATION}/models/${VITE_MODEL_ID}`,
+          //model: `projects/${}/locations/${VITE_LOCATION}/models/${VITE_MODEL_ID}`,
           model: VITE_MODEL_ID,
           //...(resumeHandle
           //  ? { sessionResumption: { handle: resumeHandle } }
@@ -773,10 +782,60 @@ Voice: Maintain a professional, creative, and witty persona.
 
               simliClientRef.current.sendAudioData(audioBuffer);
             }
+          } else {
+            console.log("Received serverContent:", response.serverContent);
+
+            if (showThinking) {
+              response.serverContent.modelTurn?.parts.forEach((part) => {
+                if (part.text) {
+                  setChatHistory((prev) => [
+                    ...prev,
+                    {
+                      role: "assistant",
+                      content: part.text,
+                    },
+                  ]);
+                } else if (part.codeExecutionResult) {
+                  setChatHistory((prev) => [
+                    ...prev,
+                    {
+                      role: "assistant",
+                      content: `${part.codeExecutionResult.outcome}: ${part.codeExecutionResult.output}`,
+                    },
+                  ]);
+                }
+              });
+            }
+          }
+        } else {
+          console.log("Received serverContent:", response.serverContent);
+
+          // if the message was response.serverContent.outputTranscription, append it to the last message in the chat history instead of creating a new message
+          // Only response.serverContent.outputTranscription messages should be appended, all other messages (like modelTurn) should create a new message in the chat history
+          if (showThinking && response.serverContent.outputTranscription?.text) {
+            setChatHistory((prev) => {
+              const lastMsg = prev[prev.length - 1];
+              if (lastMsg?.role === "assistant") {
+                return [
+                  ...prev.slice(0, -1),
+                  {
+                    ...lastMsg,
+                    content: lastMsg.content + " " + response.serverContent.outputTranscription.text,
+                  },
+                ];
+              }
+              return [
+                ...prev,
+                {
+                  role: "assistant",
+                  content: response.serverContent.outputTranscription.text,
+                },
+              ];
+            });
           }
         }
       } else {
-        console.log("Received message from Gemini:", response);
+        console.log("Received message:", response);
       }
     };
 
@@ -927,11 +986,39 @@ Voice: Maintain a professional, creative, and witty persona.
     }
   }, [isMicMuted]);
 
+  // Handle Chat Scroll on new content from Gemini
+  const scrollToBottom = () => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  };
+
+  const handleScroll = () => {
+    if (chatContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+      // 50px threshold to determine if user is at the bottom
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+      isAtBottomRef.current = isAtBottom;
+    }
+  };
+
+  useEffect(() => {
+    if (isAtBottomRef.current) {
+      scrollToBottom();
+    }
+  }, [chatHistory]);
+
   return (
     <div className="flex bg-black items-center justify-center min-h-screen h-screen overflow-hidden text-white font-sans">
       <div className="flex flex-col gap-6 max-w-2xl w-full h-full p-4 items-center justify-center min-h-0">
         {/* Avatar Container - Flexible width between 180px and 512px, square aspect ratio */}
-        <div className="relative w-full aspect-square min-w-[180px] max-w-[512px] min-h-[180px] shrink bg-black overflow-hidden flex items-center justify-center border border-gray-800 rounded-lg shadow-xl group">
+        <div
+          className={`relative w-full aspect-square min-w-[180px] max-w-[512px] min-h-[180px] shrink bg-black overflow-hidden flex items-center justify-center border rounded-lg shadow-xl transition-all duration-700 ease-in-out group ${
+            isSpeaking
+              ? "animate-ai-pulse border-blue-400 scale-[1.02]"
+              : "border-gray-800 scale-100"
+          }`}
+        >
           {/* Helper message if not started */}
           {!hasInteracted ? (
             <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20 text-white flex-col gap-4">
@@ -952,8 +1039,18 @@ Voice: Maintain a professional, creative, and witty persona.
             ref={videoRef}
             autoPlay
             playsInline
-            className="w-full h-full object-cover"
+            className={`w-full h-full object-cover transition-opacity duration-1000 ${
+              isSimliReady ? "opacity-100" : "opacity-0"
+            }`}
           />
+
+          {/* Active Indicator Dot */}
+          {isSpeaking && (
+            <div className="absolute top-4 right-4 flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+            </div>
+          )}
           <audio ref={audioRef} autoPlay muted className="hidden" />
 
           {/* Status / Error Overlay */}
@@ -1045,34 +1142,58 @@ Voice: Maintain a professional, creative, and witty persona.
               )}
             </div>
 
-            {/* Middle: Transcript Toggle */}
-            <button
-              onClick={() => setShowTranscript(!showTranscript)}
-              className={`p-3 rounded-full transition-all shadow-lg ${
-                showTranscript
-                  ? "bg-blue-600 hover:bg-blue-700 text-white"
-                  : "bg-gray-800/80 hover:bg-gray-700 text-white backdrop-blur-sm"
-              }`}
-              title="Toggle Transcript"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+            {/* Middle: Controls */}
+            <div className="flex items-center gap-4">
+              {/* Thinking Toggle */}
+              <button
+                onClick={() => setShowThinking(!showThinking)}
+                className={`p-3 rounded-full transition-all shadow-lg ${
+                  showThinking
+                    ? "bg-purple-600 hover:bg-purple-700 text-white"
+                    : "bg-gray-800/80 hover:bg-gray-700 text-white backdrop-blur-sm"
+                }`}
+                title="Toggle Thinking Output"
               >
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <polyline points="14 2 14 8 20 8"></polyline>
-                <line x1="16" y1="13" x2="8" y2="13"></line>
-                <line x1="16" y1="17" x2="8" y2="17"></line>
-                <polyline points="10 9 9 9 8 9"></polyline>
-              </svg>
-            </button>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M4,18 C5.1045695,18 6,18.8954305 6,20 C6,21.1045695 5.1045695,22 4,22 C2.8954305,22 2,21.1045695 2,20 C2,18.8954305 2.8954305,18 4,18 Z M9.5,15 C10.8807119,15 12,16.1192881 12,17.5 C12,18.8807119 10.8807119,20 9.5,20 C8.11928813,20 7,18.8807119 7,17.5 C7,16.1192881 8.11928813,15 9.5,15 Z M12,2 C14.6592222,2 16.8838018,3.92259542 17.3302255,6.47059089 L17.4117647,6.47058824 C19.4909544,6.47058824 21.1764706,8.15610447 21.1764706,10.2352941 C21.1764706,12.3144838 19.4909544,14 17.4117647,14 L6.58823529,14 C4.50904565,14 2.82352941,12.3144838 2.82352941,10.2352941 C2.82352941,8.15610447 4.50904565,6.47058824 6.58825824,6.47058824 L6.66977451,6.47059089 C7.11619821,3.92259542 9.34077777,2 12,2 Z"></path>
+                </svg>
+              </button>
+
+              {/* Transcript Toggle */}
+              <button
+                onClick={() => setShowTranscript(!showTranscript)}
+                className={`p-3 rounded-full transition-all shadow-lg ${
+                  showTranscript
+                    ? "bg-blue-600 hover:bg-blue-700 text-white"
+                    : "bg-gray-800/80 hover:bg-gray-700 text-white backdrop-blur-sm"
+                }`}
+                title="Toggle Transcript"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                  <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+              </button>
+            </div>
 
             {/* Right: Volume Control */}
             <div className="flex items-center gap-2 bg-gray-800/80 backdrop-blur-sm rounded-full p-2 pr-4 shadow-lg group/vol">
@@ -1133,7 +1254,11 @@ Voice: Maintain a professional, creative, and witty persona.
         {/* Transcript Section (Bottom) */}
         {showTranscript && (
           <div className="flex flex-col gap-2 w-full max-w-[512px] flex-1 min-h-0 animate-in fade-in slide-in-from-top-4 duration-300">
-            <div className="flex-1 bg-gray-900 rounded-lg p-4 overflow-y-auto text-sm text-gray-300 border border-gray-800 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent flex flex-col gap-3 shadow-inner min-h-0">
+            <div
+              ref={chatContainerRef}
+              onScroll={handleScroll}
+              className="flex-1 bg-gray-900 rounded-lg p-4 overflow-y-auto text-sm text-gray-300 border border-gray-800 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent flex flex-col gap-3 shadow-inner min-h-0"
+            >
               {chatHistory.length === 0 && (
                 <p className="text-gray-500 italic text-center text-xs my-auto">
                   Conversation will appear here...
