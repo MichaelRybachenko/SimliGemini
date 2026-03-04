@@ -812,7 +812,10 @@ Voice: Maintain a professional, creative, and witty persona.
 
           // if the message was response.serverContent.outputTranscription, append it to the last message in the chat history instead of creating a new message
           // Only response.serverContent.outputTranscription messages should be appended, all other messages (like modelTurn) should create a new message in the chat history
-          if (showThinking && response.serverContent.outputTranscription?.text) {
+          if (
+            showThinking &&
+            response.serverContent.outputTranscription?.text
+          ) {
             setChatHistory((prev) => {
               const lastMsg = prev[prev.length - 1];
               if (lastMsg?.role === "assistant") {
@@ -820,7 +823,10 @@ Voice: Maintain a professional, creative, and witty persona.
                   ...prev.slice(0, -1),
                   {
                     ...lastMsg,
-                    content: lastMsg.content + " " + response.serverContent.outputTranscription.text,
+                    content:
+                      lastMsg.content +
+                      " " +
+                      response.serverContent.outputTranscription.text,
                   },
                 ];
               }
@@ -832,6 +838,22 @@ Voice: Maintain a professional, creative, and witty persona.
                 },
               ];
             });
+          } else if (response.serverContent.generationComplete) {
+            setChatHistory((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                content: "Generation complete...",
+              },
+            ]);
+          } else if (response.serverContent.turnComplete) {
+            setChatHistory((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                content: "Turn complete...",
+              },
+            ]);
           }
         }
       } else {
@@ -989,13 +1011,15 @@ Voice: Maintain a professional, creative, and witty persona.
   // Handle Chat Scroll on new content from Gemini
   const scrollToBottom = () => {
     if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      chatContainerRef.current.scrollTop =
+        chatContainerRef.current.scrollHeight;
     }
   };
 
   const handleScroll = () => {
     if (chatContainerRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+      const { scrollTop, scrollHeight, clientHeight } =
+        chatContainerRef.current;
       // 50px threshold to determine if user is at the bottom
       const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
       isAtBottomRef.current = isAtBottom;
