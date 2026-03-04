@@ -88,17 +88,7 @@ The application features a persona named **Alisa**, a creative producer for "Rad
     # Simli Face ID (The ID of the avatar face you want to use)
     VITE_SIMLI_FACE_ID="your_simli_face_id_here"
 
-    # The resource name of the index (optional)
-    INDEX_RESOURCE_NAME="projects/my-project-id/locations/us-central1/indexes/my-index-id"
-
-    # The API endpoint for the Match Service (usually us-central1-aiplatform.googleapis.com)
-    API_ENDPOINT="us-central1-aiplatform.googleapis.com"
-
-    # The specific endpoint where your index is deployed 
-    INDEX_ENDPOINT="projects/my-project-id/locations/us-central1/indexEndpoints/my-index-endpoint-id"
-
-    # The ID of the deployed index within the endpoint
-    DEPLOYED_INDEX_ID="my_deployed_index_id"
+    VITE_MODEL_ID="models/gemini-2.5-flash-native-audio-latest"
     ```
 
 ## Running the Application
