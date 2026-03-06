@@ -59,6 +59,7 @@ const SimliLiveGemini: React.FC = () => {
   const [showTranscript, setShowTranscript] = useState(true);
   const [showThinking, setShowThinking] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [volumeLevel, setVolumeLevel] = useState(0);
 
   // --- Constants ---
   const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
@@ -189,13 +190,16 @@ const SimliLiveGemini: React.FC = () => {
     return bytes;
   };
 
-  const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
+  const arrayBufferToBase64 = (buffer) => {
     let binary = "";
     const bytes = new Uint8Array(buffer);
     const len = bytes.byteLength;
+
+    // Efficiently build the binary string
     for (let i = 0; i < len; i++) {
       binary += String.fromCharCode(bytes[i]);
     }
+
     return window.btoa(binary);
   };
 
@@ -943,11 +947,35 @@ Voice: Maintain a professional, creative, and witty persona.
       const workletNode = new AudioWorkletNode(audioContext, "pcm-processor"); // Changed to match registered name
       processorRef.current = workletNode;
 
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+      const updateMeter = () => {
+        analyser.getByteFrequencyData(dataArray);
+        
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i];
+        }
+        const average = sum / dataArray.length;
+        
+        setVolumeLevel(average); 
+        
+        if (streamRef.current) {
+          requestAnimationFrame(updateMeter);
+        }
+      };
+      updateMeter();
+
       workletNode.port.onmessage = (event) => {
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN)
           return;
 
-        const base64Audio = arrayBufferToBase64(event.data);
+        const pcmBuffer = event.data;
+        const base64Audio = arrayBufferToBase64(pcmBuffer);
 
         const msg = {
           realtime_input: {
@@ -1079,11 +1107,23 @@ Voice: Maintain a professional, creative, and witty persona.
 
           {/* Active Indicator Dot */}
           {isSpeaking && (
-            <div className="absolute top-4 right-4 flex h-3 w-3">
+            <div className="absolute top-4 right-4 flex h-3 w-3 z-40">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
             </div>
           )}
+
+          {/* Input Volume Meter Overlay */}
+          <div className="absolute top-4 left-4 z-40 flex items-center gap-2 bg-black/50 p-2 rounded-lg backdrop-blur-sm text-xs">
+            <div className="w-24 h-2 bg-gray-700 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-green-500 transition-all duration-75" 
+                style={{ width: `${isMicMuted ? 0 : (volumeLevel / 255) * 100}%` }}
+              />
+            </div>
+            <span>{isMicMuted ? '🎤 (Muted)' : '🎤 Listening...'}</span>
+          </div>
+
           <audio ref={audioRef} autoPlay muted className="hidden" />
 
           {/* Status / Error Overlay */}
