@@ -1114,14 +1114,13 @@ Voice: Maintain a professional, creative, and witty persona.
           )}
 
           {/* Input Volume Meter Overlay */}
-          <div className="absolute top-4 left-4 z-40 flex items-center gap-2 bg-black/50 p-2 rounded-lg backdrop-blur-sm text-xs">
-            <div className="w-24 h-2 bg-gray-700 rounded-full overflow-hidden">
+          <div className="absolute top-4 left-4 z-40 bg-black/50 p-2 rounded-lg backdrop-blur-sm">
+            <div className="w-2 h-24 bg-gray-700 rounded-full overflow-hidden flex flex-col justify-end">
               <div 
-                className="h-full bg-green-500 transition-all duration-75" 
-                style={{ width: `${isMicMuted ? 0 : (volumeLevel / 255) * 100}%` }}
+                className="w-full bg-green-500 transition-all duration-75" 
+                style={{ height: `${isMicMuted ? 0 : (volumeLevel / 255) * 100}%` }}
               />
             </div>
-            <span>{isMicMuted ? '🎤 (Muted)' : '🎤 Listening...'}</span>
           </div>
 
           <audio ref={audioRef} autoPlay muted className="hidden" />
