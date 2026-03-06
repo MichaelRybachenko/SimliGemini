@@ -935,41 +935,48 @@ Voice: Maintain a professional, creative, and witty persona.
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true },
       });
+
       streamRef.current = stream;
 
       const audioContext = new AudioContext({ sampleRate: 16000 });
       audioContextRef.current = audioContext;
 
-      // Load the worklet from the public folder
-      await audioContext.audioWorklet.addModule("/pcm-processor.js");
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+      }
 
+      const gainNode = audioContext.createGain();
+      gainNode.gain.value = 2.0;
+
+      // 1. Create the source from the stream
       const source = audioContext.createMediaStreamSource(stream);
-      const workletNode = new AudioWorkletNode(audioContext, "pcm-processor"); // Changed to match registered name
-      processorRef.current = workletNode;
+      sourceRef.current = source; // Store in ref to prevent GC
 
+      // 2. Setup the Analyser for the visual meter
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 256;
-      source.connect(analyser);
 
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
       const updateMeter = () => {
+        if (!streamRef.current) return;
         analyser.getByteFrequencyData(dataArray);
-        
+
         let sum = 0;
         for (let i = 0; i < dataArray.length; i++) {
           sum += dataArray[i];
         }
-        const average = sum / dataArray.length;
-        
-        setVolumeLevel(average); 
-        
-        if (streamRef.current) {
-          requestAnimationFrame(updateMeter);
-        }
+        setVolumeLevel(sum / dataArray.length);
+        requestAnimationFrame(updateMeter);
       };
+
       updateMeter();
 
+      await audioContext.audioWorklet.addModule("/pcm-processor.js");
+
+      const workletNode = new AudioWorkletNode(audioContext, "pcm-processor");
+      processorRef.current = workletNode;
+
+      // Add this explicit message handler
       workletNode.port.onmessage = (event) => {
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN)
           return;
@@ -991,8 +998,11 @@ Voice: Maintain a professional, creative, and witty persona.
         wsRef.current.send(JSON.stringify(msg));
       };
 
-      source.connect(workletNode);
-      workletNode.connect(audioContext.destination); // Required for some browsers to keep the clock running
+      // Now connect the chain
+      source.connect(gainNode);
+      gainNode.connect(analyser);
+      gainNode.connect(workletNode);
+      workletNode.connect(audioContext.destination);
     } catch (e) {
       console.error("Mic Error:", e);
     }
@@ -1116,9 +1126,11 @@ Voice: Maintain a professional, creative, and witty persona.
           {/* Input Volume Meter Overlay */}
           <div className="absolute top-4 left-4 z-40 bg-black/50 p-2 rounded-lg backdrop-blur-sm">
             <div className="w-2 h-24 bg-gray-700 rounded-full overflow-hidden flex flex-col justify-end">
-              <div 
-                className="w-full bg-green-500 transition-all duration-75" 
-                style={{ height: `${isMicMuted ? 0 : (volumeLevel / 255) * 100}%` }}
+              <div
+                className="w-full bg-green-500 transition-all duration-75"
+                style={{
+                  height: `${isMicMuted ? 0 : (volumeLevel / 255) * 100}%`,
+                }}
               />
             </div>
           </div>
@@ -1137,7 +1149,7 @@ Voice: Maintain a professional, creative, and witty persona.
           )}
 
           {/* Bottom Controls Overlay */}
-          <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center z-40 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center z-40 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300">
             {/* Left: Mic Toggle */}
             <div className="flex items-center gap-4">
               <button
