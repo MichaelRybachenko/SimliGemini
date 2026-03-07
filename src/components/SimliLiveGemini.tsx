@@ -850,22 +850,48 @@ Voice: Maintain a professional, creative, and witty persona.
               showTranscript &&
               response.serverContent.outputTranscription.text.trim() !== ""
             ) {
-              setChatHistory((prev) => [
-                ...prev,
-                {
-                  role: "assistant",
-                  content: response.serverContent.outputTranscription.text,
-                },
-              ]);
+              // Append to last message if it's from assistant and response.serverContent.outputTranscription
+              setChatHistory((prev) => {
+                const lastMsg = prev[prev.length - 1];
+                if (lastMsg && lastMsg.role === "assistant" && !lastMsg.isImageLoading && !lastMsg.id?.startsWith('msg-')) {
+                  const newHistory = [...prev];
+                  newHistory[newHistory.length - 1] = {
+                    ...lastMsg,
+                    content: lastMsg.content + response.serverContent.outputTranscription.text,
+                  };
+                  return newHistory;
+                } else {
+                  return [
+                    ...prev,
+                    {
+                      role: "assistant",
+                      content: response.serverContent.outputTranscription.text,
+                    },
+                  ];
+                }
+              });
             }
           } else if (response.serverContent.inputTranscription) {
-            setChatHistory((prev) => [
-              ...prev,
-              {
-                role: "user",
-                content: response.serverContent.inputTranscription.text,
-              },
-            ]);
+            // Append to last message if it's from user and response.serverContent.inputTranscription
+            setChatHistory((prev) => {
+              const lastMsg = prev[prev.length - 1];
+              if (lastMsg && lastMsg.role === "user") {
+                const newHistory = [...prev];
+                newHistory[newHistory.length - 1] = {
+                  ...lastMsg,
+                  content: lastMsg.content + response.serverContent.inputTranscription.text,
+                };
+                return newHistory;
+              } else {
+                return [
+                  ...prev,
+                  {
+                    role: "user",
+                    content: response.serverContent.inputTranscription.text,
+                  },
+                ];
+              }
+            });
           } else if (response.serverContent.generationComplete) {
             setChatHistory((prev) => [
               ...prev,
@@ -963,7 +989,7 @@ Voice: Maintain a professional, creative, and witty persona.
       }
 
       const gainNode = audioContext.createGain();
-      gainNode.gain.value = 1.5;
+      gainNode.gain.value = 1.2;
 
       // 1. Create the source from the stream
       const source = audioContext.createMediaStreamSource(stream);
