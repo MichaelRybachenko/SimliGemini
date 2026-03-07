@@ -38,6 +38,10 @@ const SimliLiveGemini: React.FC = () => {
   const latestSessionHandle = useRef<string | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const dominantColorRef = useRef<string | null>(null);
 
   // --- State ---
   const [isSimliReady, setIsSimliReady] = useState(false);
@@ -59,7 +63,6 @@ const SimliLiveGemini: React.FC = () => {
   const [showTranscript, setShowTranscript] = useState(true);
   const [showThinking, setShowThinking] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [volumeLevel, setVolumeLevel] = useState(0);
 
   // --- Constants ---
   const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
@@ -265,7 +268,7 @@ const SimliLiveGemini: React.FC = () => {
         : [{ urls: ["stun:stun.l.google.com:19302"] }];
 
       // 3. Initialize Simli Client
-      simliClientRef.current = new SimliClient(
+      const client = new SimliClient(
         tokenData.session_token,
         videoRef.current,
         audioRef.current,
@@ -276,6 +279,8 @@ const SimliLiveGemini: React.FC = () => {
         "wss://api.simli.ai",
         3000,
       );
+
+      simliClientRef.current = client;
 
       simliClientRef.current.on("speaking", () => {
         console.log("SPEAKING...");
@@ -289,7 +294,7 @@ const SimliLiveGemini: React.FC = () => {
         console.log("SimliClient disconnected"),
       );
 
-      await simliClientRef.current.start();
+      await client.start();
       console.log("Simli Client Started");
       setIsSimliReady(true);
 
@@ -332,7 +337,11 @@ const SimliLiveGemini: React.FC = () => {
           sessionResumption: { handle: resumeHandle },
           realtimeInputConfig: {
             automaticActivityDetection: {
-              startOfSpeechSensitivity: "START_SENSITIVITY_HIGH",
+              disabled: false,
+              startOfSpeechSensitivity: "START_SENSITIVITY_LOW",
+              end_of_speech_sensitivity: "END_SENSITIVITY_LOW",
+              prefix_padding_ms: 20,
+              silence_duration_ms: 200,
             },
             activityHandling: "START_OF_ACTIVITY_INTERRUPTS",
           },
@@ -481,33 +490,8 @@ Voice: Maintain a professional, creative, and witty persona.
         return;
       }
 
-      // Sending the welcome message with a slight delay allows the server to process the setup message first.
-      // This prevents race conditions where 'client_content' and 'realtime_input' (audio) arrive before the session is ready.
-      setTimeout(() => {
-        const welcome = {
-          client_content: {
-            turns: [
-              {
-                role: "user",
-                parts: [
-                  {
-                    text: "Hello, Creative Producer! Welcome to the meeting! Give me a casual greeting and tell me you're ready to start brainstorming albums. Use Google Search if you need to know what's trending in music right now. Give me one brilliant idea for an album concept to start with.",
-                  },
-                ],
-              },
-            ],
-            turn_complete: true,
-          },
-        };
-
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify(welcome));
-          console.log("Sent Welcome Message");
-        }
-
-        // Start recording after sending the welcome message
-        startAudioRecording();
-      }, 500);
+      // Start recording after sending the welcome message
+      startAudioRecording();
     };
 
     ws.onmessage = async (event: MessageEvent) => {
@@ -534,13 +518,38 @@ Voice: Maintain a professional, creative, and witty persona.
 
       // ... existing message handling ...
 
-      if (response.toolCall) {
-        console.log("Producer is printing a concept...");
+      if (response.setupComplete) {
+        console.log("Setup complete. Gemini is ready for interactions.");
+
+        // Sending the welcome message with a slight delay allows the server to process the setup message first.
+        // This prevents race conditions where 'client_content' and 'realtime_input' (audio) arrive before the session is ready.
+        const welcome = {
+          client_content: {
+            turns: [
+              {
+                role: "user",
+                parts: [
+                  {
+                    text: "Hello, Creative Producer! Welcome to the meeting! Give me a casual greeting and tell me you're ready to start brainstorming albums. Use Google Search if you need to know what's trending in music right now. Give me one brilliant idea for an album concept to start with.",
+                  },
+                ],
+              },
+            ],
+            turn_complete: true,
+          },
+        };
+
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify(welcome));
+          console.log("Sent Welcome Message");
+        }
+      } else if (response.toolCall) {
         const functionResponses: any[] = [];
 
         for (const fc of response.toolCall.functionCalls) {
           if (fc.name === "print_album_concept") {
-            // 1. Capture the concept for your UI
+            console.log("Producer is printing a concept...");
+
             const concept = fc.args;
 
             console.log(
@@ -761,7 +770,24 @@ Voice: Maintain a professional, creative, and witty persona.
           );
         }
       } else if (response.serverContent) {
-        if (response.serverContent.modelTurn?.parts) {
+        if (response.serverContent.interrupted) {
+          console.warn("AI Interrupted by User. Clearing buffers...");
+
+          /*if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.src = "";
+            audioRef.current.load();
+          }
+
+          // 2. Reset UI State
+          setIsSpeaking(false);
+
+          setTimeout(() => {
+            if (audioRef.current) {
+              audioRef.current.srcObject = streamRef.current;
+            }
+          }, 100);*/
+        } else if (response.serverContent.modelTurn?.parts) {
           // 1. Check for incoming audio chunks
           const audioPart = response.serverContent?.modelTurn?.parts?.find(
             (p) => p.inlineData?.mimeType.startsWith("audio/pcm"),
@@ -790,7 +816,7 @@ Voice: Maintain a professional, creative, and witty persona.
               simliClientRef.current.sendAudioData(audioBuffer);
             }
           } else {
-            console.log("Received serverContent:", response.serverContent);
+            //console.log("Received serverContent:", response.serverContent);
 
             if (showThinking) {
               response.serverContent.modelTurn?.parts.forEach((part) => {
@@ -815,42 +841,31 @@ Voice: Maintain a professional, creative, and witty persona.
             }
           }
         } else {
-          console.log("Received serverContent:", response.serverContent);
+          //console.log("Received serverContent:", response.serverContent);
 
           // if the message was response.serverContent.outputTranscription, append it to the last message in the chat history instead of creating a new message
           // Only response.serverContent.outputTranscription messages should be appended, all other messages (like modelTurn) should create a new message in the chat history
-          if (
-            showThinking &&
-            response.serverContent.outputTranscription?.text
-          ) {
-            setChatHistory((prev) => {
-              const lastMsg = prev[prev.length - 1];
-              // Don't append to messages that have an ID (Tool Cards) or specific Tool Logs
-              const isToolMsg =
-                lastMsg?.id ||
-                lastMsg?.content.startsWith("Producer requesting") ||
-                lastMsg?.content.startsWith("Similarity Result");
-
-              if (lastMsg?.role === "assistant" && !isToolMsg) {
-                return [
-                  ...prev.slice(0, -1),
-                  {
-                    ...lastMsg,
-                    content:
-                      lastMsg.content +
-                      " " +
-                      response.serverContent.outputTranscription.text,
-                  },
-                ];
-              }
-              return [
+          if (response.serverContent.outputTranscription) {
+            if (
+              showTranscript &&
+              response.serverContent.outputTranscription.text.trim() !== ""
+            ) {
+              setChatHistory((prev) => [
                 ...prev,
                 {
                   role: "assistant",
                   content: response.serverContent.outputTranscription.text,
                 },
-              ];
-            });
+              ]);
+            }
+          } else if (response.serverContent.inputTranscription) {
+            setChatHistory((prev) => [
+              ...prev,
+              {
+                role: "user",
+                content: response.serverContent.inputTranscription.text,
+              },
+            ]);
           } else if (response.serverContent.generationComplete) {
             setChatHistory((prev) => [
               ...prev,
@@ -867,10 +882,12 @@ Voice: Maintain a professional, creative, and witty persona.
                 content: "Turn complete...",
               },
             ]);
+          } else {
+            console.warn("Received serverContent:", response.serverContent);
           }
         }
       } else {
-        console.log("Received message:", response);
+        console.warn("Received message:", response);
       }
     };
 
@@ -946,7 +963,7 @@ Voice: Maintain a professional, creative, and witty persona.
       }
 
       const gainNode = audioContext.createGain();
-      gainNode.gain.value = 2.0;
+      gainNode.gain.value = 1.5;
 
       // 1. Create the source from the stream
       const source = audioContext.createMediaStreamSource(stream);
@@ -955,21 +972,9 @@ Voice: Maintain a professional, creative, and witty persona.
       // 2. Setup the Analyser for the visual meter
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 256;
+      analyserRef.current = analyser;
 
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      const updateMeter = () => {
-        if (!streamRef.current) return;
-        analyser.getByteFrequencyData(dataArray);
-
-        let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-          sum += dataArray[i];
-        }
-        setVolumeLevel(sum / dataArray.length);
-        requestAnimationFrame(updateMeter);
-      };
-
-      updateMeter();
+      startVisualizer();
 
       await audioContext.audioWorklet.addModule("/pcm-processor.js");
 
@@ -981,8 +986,16 @@ Voice: Maintain a professional, creative, and witty persona.
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN)
           return;
 
-        const pcmBuffer = event.data;
-        const base64Audio = arrayBufferToBase64(pcmBuffer);
+        const pcmData = new Int16Array(event.data);
+        const buffer = new ArrayBuffer(pcmData.length * 2);
+        const view = new DataView(buffer);
+
+        // Explicitly write Little-Endian bytes
+        for (let i = 0; i < pcmData.length; i++) {
+          view.setInt16(i * 2, pcmData[i], true); // true = Little-Endian
+        }
+
+        const base64Audio = arrayBufferToBase64(buffer);
 
         const msg = {
           realtime_input: {
@@ -1035,6 +1048,10 @@ Voice: Maintain a professional, creative, and witty persona.
         playbackContextRef.current.close();
         playbackContextRef.current = null;
       }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
     };
   }, [hasInteracted]);
 
@@ -1054,6 +1071,48 @@ Voice: Maintain a professional, creative, and witty persona.
       });
     }
   }, [isMicMuted]);
+
+  const startVisualizer = () => {
+    if (!canvasRef.current || !analyserRef.current) return;
+
+    if (animationFrameRef.current)
+      cancelAnimationFrame(animationFrameRef.current);
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const bufferLength = analyserRef.current.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    const renderFrame = () => {
+      if (!canvasRef.current || !analyserRef.current) return;
+
+      analyserRef.current.getByteFrequencyData(dataArray);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const barCount = 60;
+      const barWidth = canvas.width / barCount - 2;
+      let x = 0;
+
+      ctx.fillStyle = dominantColorRef.current || "rgba(182, 182, 255, 0.8)";
+
+      for (let i = 0; i < barCount; i++) {
+        const ratio = i / barCount;
+        const spectrumSize = bufferLength * 0.7;
+        const index = Math.floor(Math.pow(ratio, 1.7) * spectrumSize);
+        const safeIndex = Math.min(index, bufferLength - 1);
+        const barHeight = (dataArray[safeIndex] / 255) * canvas.height;
+
+        ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+        x += barWidth + 2;
+      }
+
+      animationFrameRef.current = requestAnimationFrame(renderFrame);
+    };
+
+    renderFrame();
+  };
 
   // Handle Chat Scroll on new content from Gemini
   const scrollToBottom = () => {
@@ -1123,18 +1182,6 @@ Voice: Maintain a professional, creative, and witty persona.
             </div>
           )}
 
-          {/* Input Volume Meter Overlay */}
-          <div className="absolute top-4 left-4 z-40 bg-black/50 p-2 rounded-lg backdrop-blur-sm">
-            <div className="w-2 h-24 bg-gray-700 rounded-full overflow-hidden flex flex-col justify-end">
-              <div
-                className="w-full bg-green-500 transition-all duration-75"
-                style={{
-                  height: `${isMicMuted ? 0 : (volumeLevel / 255) * 100}%`,
-                }}
-              />
-            </div>
-          </div>
-
           <audio ref={audioRef} autoPlay muted className="hidden" />
 
           {/* Status / Error Overlay */}
@@ -1149,7 +1196,7 @@ Voice: Maintain a professional, creative, and witty persona.
           )}
 
           {/* Bottom Controls Overlay */}
-          <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center z-40 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300">
+          <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center z-40 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
             {/* Left: Mic Toggle */}
             <div className="flex items-center gap-4">
               <button
@@ -1334,6 +1381,14 @@ Voice: Maintain a professional, creative, and witty persona.
             </div>
           </div>
         </div>
+
+        {/* Audio Visualizer */}
+        <canvas
+          ref={canvasRef}
+          width={512}
+          height={30}
+          className="w-full max-w-[512px] h-[30px] flex-shrink-0"
+        />
 
         {/* Transcript Section (Bottom) */}
         {showTranscript && (
