@@ -382,10 +382,11 @@ Atmosphere: Sensory keywords (e.g., "misty and ethereal").
 Instrumentation: Specific tools (e.g., "lutes," "analog drum machines").
 Vocals: Style description (e.g., "whispered," "operatic," or Instrumental).
 Tracklist: Generate 5-20 tracks following a narrative arc.
-Format: - Track 1,2,3,...: "Title" - [Description] - [Style Tags]. [new line]
-Description and Style of track is a must and should be vivid and specific, not generic.
-
-Note: Only read 1-2 'signature' tracks aloud; print the rest.
+Format:
+Track 1,2,3,...: "Title" - [Description] - [Style Tags]. 
+[new line]
+Description and Style of track is a must and should be vivid and specific, not generic (print, not read aloud).
+Note: Only read 1-2 'signature' tracks aloud; print (print_album_concept) the rest.
 
 Art Prompt: A detailed visual prompt for AI image generation.
 
