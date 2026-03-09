@@ -383,6 +383,7 @@ Instrumentation: Specific tools (e.g., "lutes," "analog drum machines").
 Vocals: Style description (e.g., "whispered," "operatic," or Instrumental).
 Tracklist: Generate 5-20 tracks following a narrative arc.
 Format: - Track 1,2,3,...: "Title" - [Description] - [Style Tags]. [new line]
+Description and Style of track is a must and should be vivid and specific, not generic.
 
 Note: Only read 1-2 'signature' tracks aloud; print the rest.
 
@@ -773,20 +774,19 @@ Voice: Maintain a professional, creative, and witty persona.
         if (response.serverContent.interrupted) {
           console.warn("AI Interrupted by User. Clearing buffers...");
 
-          /*if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current.src = "";
-            audioRef.current.load();
+          if (simliClientRef.current) {
+            // 1. Official method to flush the audio/video jitter buffer
+            simliClientRef.current.ClearBuffer();
+
+            // 2. Reset the UI "Speaking" state immediately
+            setIsSpeaking(false);
           }
 
-          // 2. Reset UI State
-          setIsSpeaking(false);
-
-          setTimeout(() => {
-            if (audioRef.current) {
-              audioRef.current.srcObject = streamRef.current;
-            }
-          }, 100);*/
+          // 3. Optional: Reset the local audio element just in case
+          if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+          }
         } else if (response.serverContent.modelTurn?.parts) {
           // 1. Check for incoming audio chunks
           const audioPart = response.serverContent?.modelTurn?.parts?.find(
@@ -811,7 +811,14 @@ Voice: Maintain a professional, creative, and witty persona.
                 int16_16k.byteLength,
               );
 
-              // console.log("Sending audio data with updated...");
+              if (audioRef.current) {
+                if (audioRef.current.paused) {
+                  audioRef.current
+                    .play()
+                    .catch((e) => console.error("Playback failed:", e));
+                }
+                audioRef.current.muted = false; // Ensure no lingering mute from barge-in
+              }
 
               simliClientRef.current.sendAudioData(audioBuffer);
             }
@@ -853,11 +860,18 @@ Voice: Maintain a professional, creative, and witty persona.
               // Append to last message if it's from assistant and response.serverContent.outputTranscription
               setChatHistory((prev) => {
                 const lastMsg = prev[prev.length - 1];
-                if (lastMsg && lastMsg.role === "assistant" && !lastMsg.isImageLoading && !lastMsg.id?.startsWith('msg-')) {
+                if (
+                  lastMsg &&
+                  lastMsg.role === "assistant" &&
+                  !lastMsg.isImageLoading &&
+                  !lastMsg.id?.startsWith("msg-")
+                ) {
                   const newHistory = [...prev];
                   newHistory[newHistory.length - 1] = {
                     ...lastMsg,
-                    content: lastMsg.content + response.serverContent.outputTranscription.text,
+                    content:
+                      lastMsg.content +
+                      response.serverContent.outputTranscription.text,
                   };
                   return newHistory;
                 } else {
@@ -879,7 +893,9 @@ Voice: Maintain a professional, creative, and witty persona.
                 const newHistory = [...prev];
                 newHistory[newHistory.length - 1] = {
                   ...lastMsg,
-                  content: lastMsg.content + response.serverContent.inputTranscription.text,
+                  content:
+                    lastMsg.content +
+                    response.serverContent.inputTranscription.text,
                 };
                 return newHistory;
               } else {
