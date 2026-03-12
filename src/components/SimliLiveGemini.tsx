@@ -1,8 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { LogLevel, SimliClient } from "simli-client";
-
 import { GoogleGenAI } from "@google/genai";
-import { tr } from "motion/react-client";
 
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
@@ -31,9 +29,7 @@ const SimliLiveGemini: React.FC = () => {
   const processorRef = useRef<AudioWorkletNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const isInitializing = useRef(false); // Ref to prevent double-initialization in Strict Mode
-  const audioBufferRef = useRef<Int16Array | null>(null); // Buffer for accumlating audio samples
   const playbackContextRef = useRef<AudioContext | null>(null);
-  const nextStartTimeRef = useRef<number>(0);
   const isResuming = useRef(false);
   const latestSessionHandle = useRef<string | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
