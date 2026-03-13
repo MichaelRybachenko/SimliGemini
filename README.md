@@ -128,7 +128,7 @@ The application features a persona named **Alisa**, a creative producer for "Rad
 
 ## Proof of Google Cloud Deployment
 
-https://github.com/MichaelRybachenko/SimliGemini/blob/main/src/components/SimliLiveGemini.tsx#L330
+https://github.com/MichaelRybachenko/SimliGemini/blob/main/src/components/SimliLiveGemini.tsx#L307
 
 To demonstrate that the **Radio AI** backend and **Vertex AI Vector Search** are running on Google Cloud, please view the recording below:
 
