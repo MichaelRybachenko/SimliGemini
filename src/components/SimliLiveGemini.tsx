@@ -327,10 +327,9 @@ const SimliLiveGemini: React.FC = () => {
         setup: {
           //model: `projects/${}/locations/${VITE_LOCATION}/models/${VITE_MODEL_ID}`,
           model: VITE_MODEL_ID,
-          //...(resumeHandle
-          //  ? { sessionResumption: { handle: resumeHandle } }
-          //  : {}),
-          sessionResumption: { handle: resumeHandle },
+          ...(resumeHandle
+            ? { sessionResumption: { handle: resumeHandle } }
+            : {}),
           realtimeInputConfig: {
             automaticActivityDetection: {
               disabled: false,
@@ -921,6 +920,11 @@ Voice: Maintain a professional, creative, and witty persona.
                 content: "Turn complete...",
               },
             ]);
+          } else if (response.serverContent.groundingMetadata) {
+            console.log(
+              "Received grounding metadata:",
+              response.serverContent.groundingMetadata,
+            );
           } else {
             console.warn("Received serverContent:", response.serverContent);
           }
@@ -1026,6 +1030,8 @@ Voice: Maintain a professional, creative, and witty persona.
           return;
 
         const pcmData = new Int16Array(event.data);
+        if (pcmData.length === 0) return;
+
         const buffer = new ArrayBuffer(pcmData.length * 2);
         const view = new DataView(buffer);
 
@@ -1040,7 +1046,7 @@ Voice: Maintain a professional, creative, and witty persona.
           realtime_input: {
             media_chunks: [
               {
-                mime_type: "audio/pcm;rate=16000",
+                mime_type: "audio/pcm",
                 data: base64Audio,
               },
             ],
