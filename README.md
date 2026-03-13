@@ -125,3 +125,13 @@ The application features a persona named **Alisa**, a creative producer for "Rad
 -   **Audio Issues**: Ensure your browser has permission to access the microphone.
 -   **Connection Errors**: Check your API keys in the `.env` file and ensure they are valid.
 -   **Simli/Gemini Errors**: Open the browser's developer console (F12) to see detailed error messages from the WebSocket or API calls.
+
+## Proof of Google Cloud Deployment
+
+https://github.com/MichaelRybachenko/SimliGemini/blob/main/src/components/SimliLiveGemini.tsx#L330
+
+To demonstrate that the **Radio AI** backend and **Vertex AI Vector Search** are running on Google Cloud, please view the recording below:
+
+<video src="./0310.mp4" controls="controls" style="max-width: 100%;">
+  Your browser does not support the video tag.
+</video>
