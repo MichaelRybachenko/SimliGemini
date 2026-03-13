@@ -132,5 +132,5 @@ https://github.com/MichaelRybachenko/SimliGemini/blob/main/src/components/SimliL
 
 To demonstrate that the **Radio AI** backend and **Vertex AI Vector Search** are running on Google Cloud, please view the recording below:
 
-[[video src="https://github.com/MichaelRybachenko/SimliGemini/blob/main/0310.mp4?raw=true"]]
+[[video src="https://raw.githubusercontent.com/MichaelRybachenko/SimliGemini/main/0310.mp4"]]
 
